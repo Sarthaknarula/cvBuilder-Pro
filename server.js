@@ -71,6 +71,57 @@ app.post('/api/compile-pdf', (req, res) => {
     });
 });
 
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+// Middleware for sessions
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback" // This MUST match your Cloud Console exactly
+}, async (accessToken, refreshToken, profile, done) => {
+    const email = profile.emails[0].value;
+    try {
+        // Check if user exists, if not, create them
+        let res = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        if (res.rows.length === 0) {
+            res = await pool.query(
+                "INSERT INTO users (email, oauth_provider) VALUES ($1, $2) RETURNING *",
+                [email, 'google']
+            );
+        }
+        return done(null, res.rows[0]);
+    } catch (err) {
+        return done(err);
+    }
+}));
+
+// Serialize/Deserialize to keep the user logged in
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+    const res = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+    done(null, res.rows[0]);
+});
+
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/' }),
+    (req, res) => {
+        res.redirect('/'); // Take the user home after they log in
+    }
+);
+
 app.listen(PORT, () => {
     console.log(`=========================================`);
     console.log(`🚀 Server running at: http://localhost:${PORT}`);
