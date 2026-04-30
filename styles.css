@@ -38,6 +38,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .btn-back { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold;}
 .btn-back:hover { background: #5a6268; }
 
+/* --- NEW AUTH SECTION STYLES --- */
+#auth-section { display: flex; align-items: center; gap: 15px; }
+.btn-google-login { background-color: #4285F4; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: background-color 0.2s; font-size: 14px; border: none; cursor: pointer;}
+.btn-google-login:hover { background-color: #3367D6; color: white; }
+
 #builder-canvas { position: relative; display: flex; flex-direction: column; gap: 10px;}
 .draggable-section { background: #fff; transition: opacity 0.2s; padding: 0 10px; border-radius: 8px;}
 .draggable-section.dragging { opacity: 0.4; border: 2px dashed #0056b3; background: #f8f9fa; }
@@ -74,8 +79,19 @@ textarea { height: 65px; resize: vertical; }
 .flex-row > div { flex: 1; }
 
 button { border: none; padding: 10px 15px; font-size: 14px; font-weight: bold; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+
+/* --- BUTTON STYLES --- */
 .btn-primary { background-color: #0056b3; color: white; padding: 15px; font-size: 16px; }
 .btn-primary:hover { background-color: #004494;}
+
+.btn-secondary { background-color: #e2e6ea; color: #333; padding: 15px; font-size: 16px; border: 1px solid #ccc;}
+.btn-secondary:hover { background-color: #dae0e5;}
+
+.btn-pro { background-color: #6c5ce7; color: white; padding: 15px; font-size: 16px; box-shadow: 0 4px 6px rgba(108, 92, 231, 0.2);}
+.btn-pro:hover { background-color: #5b4bc4; box-shadow: 0 6px 12px rgba(108, 92, 231, 0.3);}
+
+.btn-success { background-color: #28a745; color: white; padding: 15px; font-size: 16px; }
+.btn-success:hover { background-color: #218838; }
 
 .btn-add { background-color: #e7f3ff; color: #0056b3; width: 100%; border: 1px dashed #0056b3; margin-bottom: 10px; }
 .btn-remove { background-color: #ffebe9; color: #da3633; padding: 4px 8px; font-size: 11px; position: absolute; top: 10px; right: 10px; border-radius: 3px;}
@@ -106,5 +122,3 @@ textarea#output { flex-grow: 1; font-family: 'Consolas', monospace; background: 
 
 .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
 .action-buttons button { flex: 1; }
-.btn-success { background-color: #28a745; color: white; padding: 15px; font-size: 16px; }
-.btn-success:hover { background-color: #218838; }

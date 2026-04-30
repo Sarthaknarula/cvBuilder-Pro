@@ -1,4 +1,5 @@
 // Used to run the backend communication (download pdf, fetching templates)
+// Project: cvBuilder-Pro
 
 // configuring the .env file
 require('dotenv').config();
@@ -10,21 +11,105 @@ const path = require('path');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Session configuration (Must be before passport.session())
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === "production", // true if on Render/HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Static file serving
 app.use(express.static(__dirname));
 
-// Connecting to database
+// --- DATABASE CONNECTION ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     }
 });
+
+// --- PASSPORT CONFIGURATION ---
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback",
+    proxy: true
+}, async (accessToken, refreshToken, profile, done) => {
+    const email = profile.emails[0].value;
+    try {
+        let res = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        if (res.rows.length === 0) {
+            res = await pool.query(
+                "INSERT INTO users (email, oauth_provider) VALUES ($1, $2) RETURNING *",
+                [email, 'google']
+            );
+        }
+        return done(null, res.rows[0]);
+    } catch (err) {
+        return done(err);
+    }
+}));
+
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+    try {
+        const res = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+        done(null, res.rows[0]);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+// --- ROUTES: AUTHENTICATION ---
+
+// Trigger Google Login
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Google Callback
+app.get('/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/' }),
+    (req, res) => {
+        res.redirect('/'); 
+    }
+);
+
+// Check User Status (Used by frontend to show email/logout button)
+app.get('/api/user', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.json({ loggedIn: true, user: req.user });
+    } else {
+        res.json({ loggedIn: false });
+    }
+});
+
+// Logout Route
+app.get('/logout', (req, res, next) => {
+    req.logout((err) => {
+        if (err) return next(err);
+        res.redirect('/');
+    });
+});
+
+// --- ROUTES: RESUME LOGIC ---
 
 // Fetching templates
 app.get('/api/templates', async (req, res) => {
@@ -37,7 +122,7 @@ app.get('/api/templates', async (req, res) => {
     }
 });
 
-// Complining Latex code to make downloadable pdf
+// Compiling Latex code to make downloadable pdf
 app.post('/api/compile-pdf', (req, res) => {
     const latexString = req.body.latex;
 
@@ -71,58 +156,7 @@ app.post('/api/compile-pdf', (req, res) => {
     });
 });
 
-const session = require('express-session');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-
-// Middleware for sessions
-app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback", // This MUST match your Cloud Console exactly
-    proxy: true
-}, async (accessToken, refreshToken, profile, done) => {
-    const email = profile.emails[0].value;
-    try {
-        // Check if user exists, if not, create them
-        let res = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-        if (res.rows.length === 0) {
-            res = await pool.query(
-                "INSERT INTO users (email, oauth_provider) VALUES ($1, $2) RETURNING *",
-                [email, 'google']
-            );
-        }
-        return done(null, res.rows[0]);
-    } catch (err) {
-        return done(err);
-    }
-}));
-
-// Serialize/Deserialize to keep the user logged in
-passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser(async (id, done) => {
-    const res = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-    done(null, res.rows[0]);
-});
-
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-app.get('/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/'); // Take the user home after they log in
-    }
-);
-
+// --- START SERVER ---
 app.listen(PORT, () => {
     console.log(`=========================================`);
     console.log(`🚀 Server running at: http://localhost:${PORT}`);
