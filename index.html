@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual LaTeX Resume Builder</title>
+    
+    <link rel="stylesheet" href="styles.css">
+    
+    <script>
+        window.resumeTemplates = [];
+    </script>
+</head>
+<body>
+
+    <div id="selection-screen">
+        <h1 style="color: #333; margin-top: 50px;">Choose Your Resume Template</h1>
+        <p style="color: #666; font-size: 16px;">Select a design to start building your LaTeX CV.</p>
+        <div class="template-grid" id="template-grid"></div>
+    </div>
+
+    <div id="builder-screen">
+        <div class="container">
+            <div class="header-bar">
+                <h2>Resume Editor</h2>
+                <button class="btn-back" onclick="goBackToSelection()">← Change Template</button>
+            </div>
+
+            <form id="resumeForm">
+                <div id="builder-canvas">
+                    
+                    <div class="draggable-section" id="core-header" data-type="header">
+                        <div class="section-header-flex">
+                            <h3 class="collapsible-title" onclick="toggleSection(this)">
+                                <span class="toggle-icon">▼</span> Header
+                            </h3>
+                        </div>
+                        <div class="flex-row">
+                            <div><label>Full Name</label><input type="text" id="name" value="Alex Johnson"></div>
+                            <div><label>Phone / ID</label><input type="text" id="phone" value="+1 234 567 8900"></div>
+                        </div>
+                        <div class="flex-row">
+                            <div><label>Email</label><input type="email" id="email" value="alex.johnson@email.com"></div>
+                            <div><label>Links (Optional)</label><input type="text" id="links" value="linkedin.com/in/alexj"></div>
+                        </div>
+                    </div>
+
+                    <div class="draggable-section" id="core-edu" data-type="education">
+                        <div class="section-header-flex">
+                            <div style="display:flex; align-items:center; width:60%;">
+                                <span class="toggle-icon" onclick="toggleSection(this)" style="cursor:pointer; padding:5px;">▼</span>
+                                <input type="text" class="core-sec-title custom-sec-title-input" value="Education">
+                            </div>
+                            <div class="section-controls">
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
+                                <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-edu', 'Education')">✖ Remove</button>
+                            </div>
+                        </div>
+                        <div id="education-container"></div>
+                        <button type="button" class="btn-add" onclick="addEducation()">+ Add Another Education</button>
+                    </div>
+
+                    <div class="draggable-section" id="core-work" data-type="work">
+                        <div class="section-header-flex">
+                            <div style="display:flex; align-items:center; width:60%;">
+                                <span class="toggle-icon" onclick="toggleSection(this)" style="cursor:pointer; padding:5px;">▼</span>
+                                <input type="text" class="core-sec-title custom-sec-title-input" value="Work Experience">
+                            </div>
+                            <div class="section-controls">
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
+                                <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-work', 'Work Experience')">✖ Remove</button>
+                            </div>
+                        </div>
+                        <div id="work-container"></div>
+                        <button type="button" class="btn-add" onclick="addWorkExperience()">+ Add New Company</button>
+                    </div>
+
+                    <div class="draggable-section" id="core-proj" data-type="project">
+                        <div class="section-header-flex">
+                            <div style="display:flex; align-items:center; width:60%;">
+                                <span class="toggle-icon" onclick="toggleSection(this)" style="cursor:pointer; padding:5px;">▼</span>
+                                <input type="text" class="core-sec-title custom-sec-title-input" value="Projects">
+                            </div>
+                            <div class="section-controls">
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
+                                <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-proj', 'Projects')">✖ Remove</button>
+                            </div>
+                        </div>
+                        <div id="project-container"></div>
+                        <button type="button" class="btn-add" onclick="addProject()">+ Add Project</button>
+                    </div>
+
+                    <div class="draggable-section" id="core-ach" data-type="achievement">
+                        <div class="section-header-flex">
+                            <div style="display:flex; align-items:center; width:60%;">
+                                <span class="toggle-icon" onclick="toggleSection(this)" style="cursor:pointer; padding:5px;">▼</span>
+                                <input type="text" class="core-sec-title custom-sec-title-input" value="Achievements">
+                            </div>
+                            <div class="section-controls">
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
+                                <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-ach', 'Achievements')">✖ Remove</button>
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="margin:0;">Description Format</label>
+                            <select class="desc-format format-select" id="ach-format">
+                                <option value="bullets">Bullets</option>
+                                <option value="numbers">Numbers</option>
+                                <option value="paragraph">Paragraph</option>
+                            </select>
+                        </div>
+                        
+                        <div class="desc-lines-container" id="achievements-container">
+                            <div class="desc-line-item">
+                                <textarea class="desc-line" placeholder="Action or achievement...">First place winner at the National Collegiate Hackathon 2022.</textarea>
+                                <button type="button" class="btn-remove-line" onclick="this.parentElement.remove()" title="Remove point">✖</button>
+                            </div>
+                            <div class="desc-line-item">
+                                <textarea class="desc-line" placeholder="Action or achievement...">Published an article in a technical journal regarding database optimization techniques.</textarea>
+                                <button type="button" class="btn-remove-line" onclick="this.parentElement.remove()" title="Remove point">✖</button>
+                            </div>
+                            <div class="desc-line-item">
+                                <textarea class="desc-line" placeholder="Action or achievement...">Recognized as 'Top Coder' in university algorithmic programming competition.</textarea>
+                                <button type="button" class="btn-remove-line" onclick="this.parentElement.remove()" title="Remove point">✖</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
+
+                    </div>
+
+                    <div class="draggable-section" id="core-skill" data-type="skill">
+                        <div class="section-header-flex">
+                            <div style="display:flex; align-items:center; width:60%;">
+                                <span class="toggle-icon" onclick="toggleSection(this)" style="cursor:pointer; padding:5px;">▼</span>
+                                <input type="text" class="core-sec-title custom-sec-title-input" value="Technical Skills">
+                            </div>
+                            <div class="section-controls">
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
+                                <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-skill', 'Technical Skills')">✖ Remove</button>
+                            </div>
+                        </div>
+                        <div class="flex-row">
+                            <div><label>Languages/Tools</label><input type="text" id="sk1" value="Python, Java, C++, JavaScript"></div>
+                            <div><label>Frameworks</label><input type="text" id="sk2" value="React, Node.js, Express, Django"></div>
+                            <div><label>Other</label><input type="text" id="sk3" value="Git, Docker, AWS, SQL"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="bottom-action-area">
+                    <button type="button" class="btn-add-between" onclick="toggleAddMenu(event, this)">+ Add New Section</button>
+                    <div class="add-menu"></div>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn-primary" id="btn-generate">Generate LaTeX Code</button>
+                    <button type="button" class="btn-success" id="btn-download">Download PDF</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="container">
+            <h2>Generated Overleaf Code</h2>
+            <p style="font-size: 12px; color: #666; margin-top: 0;">Click inside the box to automatically select all text.</p>
+            <textarea id="output" readonly onclick="this.select()"></textarea>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
