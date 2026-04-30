@@ -88,7 +88,8 @@ app.use(passport.session());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback" // This MUST match your Cloud Console exactly
+    callbackURL: "/auth/google/callback", // This MUST match your Cloud Console exactly
+    proxy: true
 }, async (accessToken, refreshToken, profile, done) => {
     const email = profile.emails[0].value;
     try {
