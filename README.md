@@ -11,7 +11,7 @@ A full-stack, cloud-hosted application that bridges the gap between easy-to-use 
 
 Users can fill out a dynamic GUI form, and the backend Node.js server seamlessly translates the data into LaTeX, compiles it using an OS-level TeX Live engine, and returns a high-quality, ATS-optimized PDF directly to the browser. 
 
-**[🌐 View Live Application](https://cvbuilder-uzk7.onrender.com)**
+**[🌐 View Live Application](https://cvbuilder-pro.onrender.com)**
 *(Note: Hosted on Render's free tier. If the server is asleep, the initial load may take ~50 seconds).*
 
 ## ✨ Core Features
