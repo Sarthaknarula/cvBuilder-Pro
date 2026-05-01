@@ -1,46 +1,52 @@
-// Used to do frontend communications
-// Project: cvBuilder-Pro
+// ==========================================
+// cvBuilder Pro - Frontend Logic
+// Contains: Phase 1 Hydration & Phase 2 Tabs
+// ==========================================
 
 let activeTemplateId = '';
 let activeTemplateLatex = '';
 let removedCoreSections = [];
 let customSectionCounter = 0; 
+let isUserLoggedIn = false; // Track global login state
 
+// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- 1. AUTHENTICATION CHECK ---
     const authSection = document.getElementById('auth-section');
+    const dashboardTabs = document.getElementById('dashboard-tabs');
+    const saveCloudBtn = document.getElementById('btn-save-cloud');
+
+    // 1. AUTHENTICATION CHECK
     if (authSection) {
         try {
             const authRes = await fetch('/api/user');
             const authData = await authRes.json();
 
             if (authData.loggedIn) {
-                // Change Login button to User Info + Logout
+                isUserLoggedIn = true;
+                
+                // Show User Info & Reveal Phase 2 Tabs
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <span style="font-size: 0.9rem; color: #555;">Logged in: <strong>${authData.user.email}</strong></span>
-                        <a href="/logout" style="
-                            color: #d9534f; 
-                            text-decoration: none; 
-                            font-weight: bold; 
-                            font-size: 0.85rem;
-                            border: 1px solid #d9534f;
-                            padding: 5px 10px;
-                            border-radius: 4px;
-                        ">Logout</a>
+                        <a href="/logout" style="color: #d9534f; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #d9534f; padding: 5px 10px; border-radius: 4px;">Logout</a>
                     </div>
                 `;
+                dashboardTabs.style.display = 'flex'; // Show Dashboard Tabs
+                if (saveCloudBtn) saveCloudBtn.style.display = 'block'; // Show Pro Save button in Editor
+            } else {
+                // Not logged in: Show simple login button
+                authSection.innerHTML = `<a href="/auth/google" class="btn-google-login">Login with Google</a>`;
             }
         } catch (err) {
             console.error("Auth check failed:", err);
+            authSection.innerHTML = `<a href="/auth/google" class="btn-google-login">Login with Google</a>`;
         }
     }
 
-    // --- 2. TEMPLATE LOADING ---
+    // 2. TEMPLATE LOADING
     const grid = document.getElementById('template-grid');
     if (grid) {
         grid.innerHTML = '<p>Loading templates from database...</p>';
-
         try {
             const response = await fetch('/api/templates');
             const dbTemplates = await response.json();
@@ -56,9 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.resumeTemplates.forEach(template => {
                 const cardHTML = `
                     <div class="template-card" onclick="openBuilder('${template.id}')">
-                        <div class="preview-wrapper">
-                            ${template.preview_html}
-                        </div>
+                        <div class="preview-wrapper">${template.preview_html}</div>
                         <div class="template-title">${template.title}</div>
                         <div class="template-desc">${template.description}</div>
                         <button class="btn-primary" style="margin-top:0; padding: 10px; width: 80%;">Select Template</button>
@@ -66,35 +70,80 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
                 grid.insertAdjacentHTML('beforeend', cardHTML);
             });
-
         } catch (error) {
             console.error("Database fetch error:", error);
             grid.innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">Error: Could not connect to the database.</p>`;
         }
     }
 
-    // --- 3. DUMMY DATA INITIALIZATION ---
-    // Only run if the builder elements exist
-    if (document.getElementById('education-container')) {
-        addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'University of Technology', '3.90 GPA');
-        addEducation(false, 'High School Diploma', '2015 - 2019', 'Springfield High School', '98%');
-        
+    // 3. DUMMY DATA FOR GUESTS
+    if (document.getElementById('education-container') && !isUserLoggedIn) {
+        addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'Delhi Technological University', '9.15 CGPA');
         addWorkExperience('Tech Solutions Inc.', '2023 - Present', false); 
-        addRole('work-exp-1', 'Software Engineer', 'June 2023 - Present', 'Developed and maintained scalable web applications using React and Node.js.\nCollaborated with cross-functional teams to define, design, and ship new features.');
-
-        addProject('E-Commerce Platform | React, Firebase', '', 'Architected a full-stack e-commerce solution with real-time inventory management.');
-        addProject('Data Visualization Dashboard | Python, D3.js', '', 'Built an interactive dashboard to visualize large-scale financial datasets.');
+        addRole('work-exp-1', 'Software Engineer', 'June 2023 - Present', 'Developed and maintained scalable web applications.');
+        addProject('E-Commerce Platform | React, Firebase', '', 'Architected a full-stack e-commerce solution.');
     }
 });
 
 // --- NAVIGATION & UI LOGIC ---
 
-function openBuilder(templateId) {
+// DASHBOARD TABS (PHASE 2)
+function openTab(evt, tabId) {
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(content => content.style.display = 'none');
+
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(tabId).style.display = 'block';
+    evt.currentTarget.classList.add('active');
+}
+
+// HYDRATION LOGIC (PHASE 1)
+async function openBuilder(templateId) {
     activeTemplateId = templateId; 
     activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
+    
     document.getElementById('selection-screen').style.display = 'none';
     document.getElementById('builder-screen').style.display = 'flex';
     document.getElementById('output').value = '';
+
+    const canvas = document.getElementById('builder-canvas');
+    
+    // Only attempt hydration if the user is logged in
+    if (isUserLoggedIn) {
+        canvas.style.opacity = '0.5';
+        canvas.style.pointerEvents = 'none';
+
+        try {
+            const response = await fetch(`/api/load-resume/${templateId}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.resumeData && data.resumeData.html) {
+                    canvas.innerHTML = data.resumeData.html;
+                    console.log("☁ Resume successfully hydrated from cloud.");
+                    
+                    // Re-sync counters
+                    const customBlocks = canvas.querySelectorAll('[data-type="custom"]');
+                    customSectionCounter = customBlocks.length;
+                    const workBlocks = canvas.querySelectorAll('.work-item');
+                    window.workCounter = workBlocks.length;
+                }
+            } else {
+                console.log("No previous save found. Using default canvas.");
+                // If it's empty, populate with initial Dummy Data
+                if(document.getElementById('education-container').children.length === 0) {
+                     addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
+                }
+            }
+        } catch (err) {
+            console.error("Hydration Error:", err);
+        } finally {
+            canvas.style.opacity = '1';
+            canvas.style.pointerEvents = 'auto';
+        }
+    }
 }
 
 function goBackToSelection() {
@@ -107,8 +156,67 @@ function toggleSection(element) {
     section.classList.toggle('collapsed');
 }
 
-// --- DRAG AND DROP ---
+// --- CLOUD SAVING (PHASE 1) ---
+async function saveToCloud() {
+    const saveBtn = document.getElementById('btn-save-cloud');
+    if (!saveBtn) return;
 
+    const originalText = saveBtn.innerText;
+    saveBtn.innerText = "☁ Saving...";
+    saveBtn.style.opacity = "0.7";
+    saveBtn.disabled = true;
+
+    try {
+        // Freeze inputs into DOM
+        document.querySelectorAll('#builder-canvas input, #builder-canvas textarea, #builder-canvas select').forEach(el => {
+            if (el.tagName === 'INPUT') el.setAttribute('value', el.value);
+            else if (el.tagName === 'TEXTAREA') el.innerHTML = el.value;
+            else if (el.tagName === 'SELECT') {
+                Array.from(el.options).forEach(opt => {
+                    if (opt.value === el.value) opt.setAttribute('selected', 'selected');
+                    else opt.removeAttribute('selected');
+                });
+            }
+        });
+
+        const canvasHTML = document.getElementById('builder-canvas').innerHTML;
+
+        const response = await fetch('/api/save-resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                templateId: activeTemplateId,
+                resumeData: { html: canvasHTML }
+            })
+        });
+
+        if (!response.ok) throw new Error("Failed to save");
+
+        saveBtn.innerText = "✔ Saved!";
+        saveBtn.style.backgroundColor = "#28a745"; 
+        
+        setTimeout(() => {
+            saveBtn.innerText = originalText;
+            saveBtn.style.backgroundColor = ""; 
+            saveBtn.style.opacity = "1";
+            saveBtn.disabled = false;
+        }, 3000);
+
+    } catch (err) {
+        console.error("Save Error:", err);
+        saveBtn.innerText = "✖ Save Failed";
+        saveBtn.style.backgroundColor = "#da3633"; 
+        
+        setTimeout(() => {
+            saveBtn.innerText = originalText;
+            saveBtn.style.backgroundColor = "";
+            saveBtn.style.opacity = "1";
+            saveBtn.disabled = false;
+        }, 3000);
+    }
+}
+
+// --- DRAG AND DROP ---
 document.addEventListener('dragstart', e => {
     if (e.target.classList && e.target.classList.contains('draggable-section')) {
         e.target.classList.add('dragging');
@@ -129,11 +237,8 @@ if (canvas) {
         const draggable = document.querySelector('.dragging');
         if (draggable) {
             const afterElement = getDragAfterElement(canvas, e.clientY);
-            if (afterElement == null) {
-                canvas.appendChild(draggable);
-            } else {
-                canvas.insertBefore(draggable, afterElement);
-            }
+            if (afterElement == null) canvas.appendChild(draggable);
+            else canvas.insertBefore(draggable, afterElement);
         }
     });
 }
@@ -143,53 +248,37 @@ function getDragAfterElement(container, y) {
     return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
+        if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+        else return closest;
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
 // --- ITEM MANAGEMENT ---
-
 function toggleDate(btn, show) {
     const item = btn.closest('.custom-item');
     const wrapper = item.querySelector('.date-wrapper');
     const addBtn = item.querySelector('.add-date-btn');
     const input = item.querySelector('.c-date');
-    if (show) {
-        wrapper.style.display = 'block';
-        addBtn.style.display = 'none';
-    } else {
-        wrapper.style.display = 'none';
-        addBtn.style.display = 'inline';
-        input.value = ''; 
-    }
+    if (show) { wrapper.style.display = 'block'; addBtn.style.display = 'none'; } 
+    else { wrapper.style.display = 'none'; addBtn.style.display = 'inline'; input.value = ''; }
 }
 
 function removeCoreSection(sectionId, sectionName) {
     const section = document.getElementById(sectionId);
     section.style.display = 'none';
-    if (!removedCoreSections.find(s => s.id === sectionId)) {
-        removedCoreSections.push({id: sectionId, name: sectionName});
-    }
+    if (!removedCoreSections.find(s => s.id === sectionId)) removedCoreSections.push({id: sectionId, name: sectionName});
 }
 
-function removeCustomSection(btn) {
-    btn.closest('.draggable-section').remove();
-}
+function removeCustomSection(btn) { btn.closest('.draggable-section').remove(); }
 
 function toggleAddMenu(event, btn) {
     if (event) event.stopPropagation(); 
     document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
     const menu = btn.nextElementSibling;
     menu.innerHTML = '';
-    
     removedCoreSections.forEach(sec => {
         menu.innerHTML += `<button type="button" onclick="restoreCoreSection('${sec.id}')">Restore: ${sec.name}</button>`;
     });
-    
     menu.innerHTML += `<button type="button" class="custom-add-btn" onclick="spawnCustomBlock()">+ Create New Custom Section</button>`;
     menu.style.display = 'flex';
 }
@@ -198,15 +287,12 @@ function restoreCoreSection(sectionId) {
     const section = document.getElementById(sectionId);
     document.getElementById('builder-canvas').appendChild(section);
     section.style.display = 'block';
-    
     removedCoreSections = removedCoreSections.filter(s => s.id !== sectionId);
     document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 }
 
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.bottom-action-area')) {
-        document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
-    }
+    if (!e.target.closest('.bottom-action-area')) document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 });
 
 function addDescLine(btn) {
@@ -221,7 +307,6 @@ function addDescLine(btn) {
 }
 
 // --- ADDING SPECIFIC CONTENT BLOCKS ---
-
 function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
     const container = document.getElementById('education-container');
     if (!container) return;
@@ -358,24 +443,16 @@ function addCustomItem(blockId) {
         <div class="section-block custom-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
             <div class="form-group">
-                <label>Item Heading (Optional) 
-                    <span class="add-date-btn" style="color:#0056b3; cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Add Date]</span>
-                </label>
+                <label>Item Heading (Optional) <span class="add-date-btn" style="color:#0056b3; cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Add Date]</span></label>
                 <input type="text" class="c-heading" placeholder="e.g., Coordinator, Tech Fest">
             </div>
             <div class="form-group date-wrapper">
-                <label>Duration (Optional)
-                    <span style="color:#da3633; cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span>
-                </label>
+                <label>Duration (Optional)<span style="color:#da3633; cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label>
                 <input type="text" class="c-date" placeholder="e.g., 2021 - 2022">
             </div>
             <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label style="margin:0;">Description Format</label>
-                <select class="desc-format format-select">
-                    <option value="bullets">Bullets</option>
-                    <option value="numbers">Numbers</option>
-                    <option value="paragraph">Paragraph</option>
-                </select>
+                <select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select>
             </div>
             <div class="desc-lines-container">
                 <div class="desc-line-item">
@@ -389,7 +466,6 @@ function addCustomItem(blockId) {
 }
 
 // --- LATEX GENERATION LOGIC ---
-
 function formatText(linesArray, formatType, templateId) {
     if (!linesArray || linesArray.length === 0) return '';
     if (linesArray.length === 1 || formatType === 'paragraph') {
@@ -413,8 +489,6 @@ function escapeLatex(str) {
     if (!str) return '';
     return str.replace(/%/g, '\\%').replace(/&/g, '\\&').replace(/\$/g, '\\$').replace(/#/g, '\\#');
 }
-
-// --- SECTION HANDLERS ---
 
 function getHeaderLatex(block) {
     let name = escapeLatex(block.querySelector('#name').value).toUpperCase();
@@ -524,13 +598,6 @@ function getProjectLatex(block) {
         : `%—— PROJECTS ——\n\\Section{${secTitle.toUpperCase()}}\n` + projLatex + `\n`;
 }
 
-function getAchievementLatex(block) {
-    let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Achievements';
-    let descLines = Array.from(block.querySelectorAll('.desc-line')).map(el => el.value.trim()).filter(v => v !== '');
-    if (descLines.length === 0) return '';
-    return `%—— ACHIEVEMENTS ——\n\\section{${secTitle}}\n${formatText(descLines, block.querySelector('#ach-format').value, activeTemplateId)}\n\n`;
-}
-
 function getSkillLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Skills';
     let s1 = escapeLatex(block.querySelector('#sk1').value);
@@ -574,8 +641,6 @@ function getCustomLatex(block) {
     return activeTemplateId === 'tpl-professional' ? latex + `\\resumeSubHeadingListEnd\n\n` : latex + `\n`;
 }
 
-// --- COMPILATION & DOWNLOAD ---
-
 function getCompiledLatex() {
     let bodyLatex = '';
     document.querySelectorAll('#builder-canvas .draggable-section').forEach(block => {
@@ -585,18 +650,21 @@ function getCompiledLatex() {
         else if(type === 'education') bodyLatex += getEducationLatex(block);
         else if(type === 'work') bodyLatex += getWorkLatex(block);
         else if(type === 'project') bodyLatex += getProjectLatex(block);
-        else if(type === 'achievement') bodyLatex += getAchievementLatex(block);
         else if(type === 'skill') bodyLatex += getSkillLatex(block);
         else if(type === 'custom') bodyLatex += getCustomLatex(block);
     });
     return activeTemplateLatex.replace('{{RESUME_BODY}}', bodyLatex.trim()).replace(/\n\s*\n/g, '\n\n').trim();
 }
 
-// Attach event listeners for generate and download
+// --- GLOBAL EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
     const btnGenerate = document.getElementById('btn-generate');
     const btnDownload = document.getElementById('btn-download');
+    const btnSaveCloud = document.getElementById('btn-save-cloud');
+
     if (btnGenerate) btnGenerate.addEventListener('click', () => document.getElementById('output').value = getCompiledLatex());
+    if (btnSaveCloud) btnSaveCloud.addEventListener('click', saveToCloud);
+
     if (btnDownload) btnDownload.addEventListener('click', async () => {
         const compiledCode = getCompiledLatex();
         document.getElementById('output').value = compiledCode; 

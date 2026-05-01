@@ -3,54 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cvBuilder Pro | Visual LaTeX Editor</title>
-    
-    <link rel="stylesheet" href="styles.css">
-    
+    <title>cvBuilder Pro | Dashboard</title>
+    <link rel="stylesheet" href="style.css">
     <script>
-        // Global storage for templates fetched from the database
+        // Global storage for templates
         window.resumeTemplates = [];
     </script>
 </head>
 <body>
 
-    <!-- SECTION 1: TEMPLATE SELECTION -->
+    <!-- ========================================== -->
+    <!-- SCREEN 1: THE DASHBOARD (PHASE 2)          -->
+    <!-- ========================================== -->
     <div id="selection-screen">
-        <header class="hero-section">
-            <h1 style="color: #333; margin-top: 50px;">Choose Your Resume Template</h1>
-            <p style="color: #666; font-size: 16px;">Select a professional design to start building your LaTeX CV.</p>
+        <header class="header-bar" style="max-width: 1000px; margin: 0 auto 20px auto; padding-top: 20px;">
+            <div class="brand">
+                <h2>cvBuilder <span style="color: #4285F4;">Pro</span></h2>
+            </div>
+            <div id="auth-section">
+                <!-- Script will inject user info or login button here -->
+            </div>
         </header>
-        <div class="template-grid" id="template-grid"></div>
+
+        <div class="dashboard-container">
+            <!-- The Tab Buttons -->
+            <div class="tab-header" id="dashboard-tabs" style="display: none;">
+                <button class="tab-btn active" onclick="openTab(event, 'tab-templates')">Browse Templates</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-my-resumes')">My Cloud Saves</button>
+            </div>
+
+            <!-- Tab Content 1: Templates -->
+            <div id="tab-templates" class="tab-content" style="display: block;">
+                <h1 style="color: #333; margin-top: 20px;">Choose Your Template</h1>
+                <p style="color: #666; font-size: 16px;">Select a professional design to start building your LaTeX CV.</p>
+                <div class="template-grid" id="template-grid"></div>
+            </div>
+
+            <!-- Tab Content 2: User's Saved Resumes -->
+            <div id="tab-my-resumes" class="tab-content" style="display: none;">
+                <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
+                <p style="color: #666; font-size: 16px;">Your previously saved resumes will appear here.</p>
+                <div style="background: white; padding: 40px; border-radius: 10px; border: 2px dashed #ccc; text-align: center; margin-top: 20px;">
+                    <h3 style="color: #888;">No saved resumes found yet.</h3>
+                    <p style="color: #aaa;">Head over to "Browse Templates" to start your first CV!</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- SECTION 2: RESUME BUILDER EDITOR -->
+    <!-- ========================================== -->
+    <!-- SCREEN 2: THE EDITOR (PHASE 1 HYDRATION)   -->
+    <!-- ========================================== -->
     <div id="builder-screen" style="display: none;">
         <div class="container">
             <header class="header-bar">
                 <div class="brand">
-                    <h2>cvBuilder <span style="color: #4285F4;">Pro</span></h2>
+                    <h2>Resume Editor <span style="color: #4285F4;">Pro</span></h2>
                 </div>
-
-                <!-- DYNAMIC AUTH SECTION: Script.js will swap content here -->
-                <div id="auth-section">
-                    <a href="/auth/google" class="btn-google-login" style="
-                        background-color: #4285F4; 
-                        color: white; 
-                        padding: 10px 20px; 
-                        text-decoration: none; 
-                        border-radius: 5px; 
-                        font-weight: bold;
-                        display: inline-block;
-                    ">Login with Google</a>
-                </div>
-
-                <button class="btn-back" onclick="goBackToSelection()">← Change Template</button>
+                <button class="btn-back" onclick="goBackToSelection()">← Back to Dashboard</button>
             </header>
 
             <form id="resumeForm">
-                <!-- DRAGGABLE CANVAS AREA -->
                 <div id="builder-canvas">
-                    
                     <!-- HEADER SECTION -->
                     <div class="draggable-section" id="core-header" data-type="header">
                         <div class="section-header-flex">
@@ -134,7 +148,6 @@
                             <div><label>Developer Tools</label><input type="text" id="sk3" value="Git, Docker, VS Code"></div>
                         </div>
                     </div>
-
                 </div>
 
                 <!-- ADD SECTION MENU -->
@@ -146,8 +159,7 @@
                 <!-- PRIMARY ACTIONS -->
                 <div class="action-buttons">
                     <button type="button" class="btn-secondary" id="btn-generate">Preview LaTeX</button>
-                    <!-- THE NEW PRO FEATURE BUTTON -->
-                    <button type="button" class="btn-pro" id="btn-save-cloud" style="background-color: #6c5ce7; color: white;">☁ Save to Cloud</button>
+                    <button type="button" class="btn-pro" id="btn-save-cloud" style="display: none;">☁ Save to Cloud</button>
                     <button type="button" class="btn-success" id="btn-download">Download PDF</button>
                 </div>
             </form>
