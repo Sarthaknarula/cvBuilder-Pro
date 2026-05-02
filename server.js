@@ -1,9 +1,7 @@
 // Used to run the backend communication (download pdf, fetching templates)
 // Project: cvBuilder-Pro
 
-// configuring the .env file
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -22,32 +20,27 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Session configuration (Must be before passport.session())
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === "production", // true if on Render/HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Static file serving
 app.use(express.static(__dirname));
 
 // --- DATABASE CONNECTION ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
 });
 
-// --- PASSPORT CONFIGURATION ---
+// --- PASSPORT GOOGLE AUTH ---
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -58,10 +51,7 @@ passport.use(new GoogleStrategy({
     try {
         let res = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
         if (res.rows.length === 0) {
-            res = await pool.query(
-                "INSERT INTO users (email, oauth_provider) VALUES ($1, $2) RETURNING *",
-                [email, 'google']
-            );
+            res = await pool.query("INSERT INTO users (email, oauth_provider) VALUES ($1, $2) RETURNING *", [email, 'google']);
         }
         return done(null, res.rows[0]);
     } catch (err) {
@@ -79,29 +69,13 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// --- ROUTES: AUTHENTICATION ---
-
-// Trigger Google Login
+// --- 1. AUTH ROUTES ---
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-// Google Callback
-app.get('/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/'); 
-    }
-);
-
-// Check User Status (Used by frontend to show email/logout button)
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
 app.get('/api/user', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.json({ loggedIn: true, user: req.user });
-    } else {
-        res.json({ loggedIn: false });
-    }
+    if (req.isAuthenticated()) res.json({ loggedIn: true, user: req.user });
+    else res.json({ loggedIn: false });
 });
-
-// Logout Route
 app.get('/logout', (req, res, next) => {
     req.logout((err) => {
         if (err) return next(err);
@@ -109,9 +83,50 @@ app.get('/logout', (req, res, next) => {
     });
 });
 
-// --- ROUTES: RESUME LOGIC ---
+// --- 2. CLOUD SAVE/LOAD ROUTES ---
+app.post('/api/save-resume', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'You must be logged in to save.' });
+    
+    const userId = req.user.id;
+    const { templateId, resumeData } = req.body;
+    
+    if (!templateId || !resumeData) return res.status(400).json({ error: 'Missing template ID or resume data.' });
 
-// Fetching templates
+    try {
+        const query = `
+            INSERT INTO resumes (user_id, template_id, resume_data)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, template_id)
+            DO UPDATE SET resume_data = EXCLUDED.resume_data, updated_at = CURRENT_TIMESTAMP
+            RETURNING *;
+        `;
+        await pool.query(query, [userId, templateId, JSON.stringify(resumeData)]);
+        res.json({ success: true, message: 'Saved successfully!' });
+    } catch (err) {
+        console.error("Database Save Error:", err);
+        res.status(500).json({ error: 'Failed to save resume to cloud.' });
+    }
+});
+
+app.get('/api/load-resume/:templateId', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in.' });
+    
+    const userId = req.user.id;
+    const templateId = req.params.templateId;
+
+    try {
+        const query = `SELECT resume_data FROM resumes WHERE user_id = $1 AND template_id = $2;`;
+        const result = await pool.query(query, [userId, templateId]);
+
+        if (result.rows.length > 0) res.json({ resumeData: result.rows[0].resume_data });
+        else res.status(404).json({ message: 'No saved resume found.' });
+    } catch (err) {
+        console.error("Database Load Error:", err);
+        res.status(500).json({ error: 'Failed to load resume.' });
+    }
+});
+
+// --- 3. TEMPLATE & COMPILATION ROUTES ---
 app.get('/api/templates', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM templates ORDER BY title ASC');
@@ -122,27 +137,19 @@ app.get('/api/templates', async (req, res) => {
     }
 });
 
-// Compiling Latex code to make downloadable pdf
 app.post('/api/compile-pdf', (req, res) => {
     const latexString = req.body.latex;
-
-    if (!latexString) {
-        return res.status(400).json({ error: 'No LaTeX code provided' });
-    }
+    if (!latexString) return res.status(400).json({ error: 'No LaTeX code provided' });
 
     const uniqueId = crypto.randomUUID();
     const tempDir = path.join(__dirname, 'temp', uniqueId);
-    
     fs.mkdirSync(tempDir, { recursive: true });
 
     const texFilePath = path.join(tempDir, 'resume.tex');
     const pdfFilePath = path.join(tempDir, 'resume.pdf');
-
     fs.writeFileSync(texFilePath, latexString);
 
-    const command = `pdflatex -interaction=nonstopmode -halt-on-error resume.tex`;
-
-    exec(command, { cwd: tempDir }, (error, stdout, stderr) => {
+    exec(`pdflatex -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir }, (error, stdout, stderr) => {
         if (fs.existsSync(pdfFilePath)) {
             res.download(pdfFilePath, 'Resume.pdf', (err) => {
                 if (err) console.error('Error sending file:', err);
@@ -156,7 +163,6 @@ app.post('/api/compile-pdf', (req, res) => {
     });
 });
 
-// --- START SERVER ---
 app.listen(PORT, () => {
     console.log(`=========================================`);
     console.log(`🚀 Server running at: http://localhost:${PORT}`);
