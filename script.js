@@ -1,16 +1,15 @@
 let activeTemplateId = '';
 let activeTemplateLatex = '';
+let activeResumeName = ''; // NEW: Tracks the current file name
 let removedCoreSections = [];
 let customSectionCounter = 0; 
 let isUserLoggedIn = false; 
 
-// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
     const authSection = document.getElementById('auth-section');
     const dashboardTabs = document.getElementById('dashboard-tabs');
     const saveCloudBtn = document.getElementById('btn-save-cloud');
 
-    // 1. AUTHENTICATION CHECK
     if (authSection) {
         try {
             const authRes = await fetch('/api/user');
@@ -18,7 +17,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (authData.loggedIn) {
                 isUserLoggedIn = true;
-                
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <span style="font-size: 0.9rem; color: #555;">Logged in: <strong>${authData.user.email}</strong></span>
@@ -27,31 +25,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
                 dashboardTabs.style.display = 'flex'; 
                 if (saveCloudBtn) saveCloudBtn.style.display = 'block'; 
-                
-                fetchMyResumes(); // Load saved resumes into dashboard
-                
+                fetchMyResumes(); 
             } else {
                 authSection.innerHTML = `<a href="/auth/google" class="btn-google-login">Login with Google</a>`;
             }
         } catch (err) {
-            console.error("Auth check failed:", err);
             authSection.innerHTML = `<a href="/auth/google" class="btn-google-login">Login with Google</a>`;
         }
     }
 
-    // 2. TEMPLATE LOADING
     const grid = document.getElementById('template-grid');
     if (grid) {
         grid.innerHTML = '<p>Loading templates from database...</p>';
         try {
             const response = await fetch('/api/templates');
             const dbTemplates = await response.json();
-            
             window.resumeTemplates = dbTemplates;
             grid.innerHTML = ''; 
 
             if (window.resumeTemplates.length === 0) {
-                grid.innerHTML = `<p style="color:red;">No templates found in the database.</p>`;
+                grid.innerHTML = `<p style="color:red;">No templates found.</p>`;
                 return;
             }
 
@@ -61,18 +54,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="preview-wrapper">${template.preview_html}</div>
                         <div class="template-title">${template.title}</div>
                         <div class="template-desc">${template.description}</div>
-                        <button class="btn-primary" style="margin-top:0; padding: 10px; width: 80%;">Select Template</button>
+                        <button class="btn-primary" style="margin-top:0; padding: 10px; width: 80%;">Start Fresh Canvas</button>
                     </div>
                 `;
                 grid.insertAdjacentHTML('beforeend', cardHTML);
             });
         } catch (error) {
-            console.error("Database fetch error:", error);
-            grid.innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">Error: Could not connect to the database.</p>`;
+            grid.innerHTML = `<p style="color:red;">Error connecting to database.</p>`;
         }
     }
 
-    // 3. DUMMY DATA FOR GUESTS
     if (document.getElementById('education-container') && !isUserLoggedIn) {
         addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'Delhi Technological University', '9.15 CGPA');
         addWorkExperience('Tech Solutions Inc.', '2023 - Present', false); 
@@ -81,116 +72,136 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- NAVIGATION & UI LOGIC ---
 function openTab(evt, tabId) {
     const contents = document.querySelectorAll('.tab-content');
     contents.forEach(content => content.style.display = 'none');
-
     const buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
-
     document.getElementById(tabId).style.display = 'block';
     evt.currentTarget.classList.add('active');
 }
 
+// --- NEW: Dashboard Refresh + Custom Names + Delete Logic ---
 async function fetchMyResumes() {
     const container = document.getElementById('tab-my-resumes');
-    
     try {
         const response = await fetch('/api/my-resumes');
         if (!response.ok) return; 
         
         const saves = await response.json();
-        if (saves.length === 0) return;
+        if (saves.length === 0) {
+            container.innerHTML = `
+                <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
+                <div style="background: white; padding: 40px; border-radius: 10px; border: 2px dashed #ccc; text-align: center; margin-top: 20px;">
+                    <h3 style="color: #888;">No saved resumes found yet.</h3>
+                </div>`;
+            return;
+        }
 
         let html = `
             <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
-            <p style="color: #666; font-size: 16px;">Pick up right where you left off.</p>
+            <p style="color: #666; font-size: 16px;">Select a project to continue editing.</p>
             <div class="template-grid">
         `;
 
         saves.forEach(save => {
-            const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { 
-                year: 'numeric', month: 'short', day: 'numeric' 
-            });
-            
+            const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
             html += `
-                <div class="template-card" onclick="openBuilder('${save.template_id}')">
-                    <div class="preview-wrapper">${save.preview_html}</div>
-                    <div class="template-title">${save.title}</div>
-                    <div class="template-desc" style="color: #0056b3; font-weight: bold;">
-                        Last edited: ${dateStr}
+                <div class="template-card" style="border: 1px solid #ddd;">
+                    <div class="preview-wrapper" style="cursor:pointer;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">${save.preview_html}</div>
+                    <div class="template-title">${save.resume_name}</div>
+                    <div class="template-desc" style="color: #0056b3; font-weight: bold; margin-bottom: 10px;">Last edited: ${dateStr}</div>
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <button class="btn-success" style="flex: 1; padding: 10px;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">✎ Edit</button>
+                        <button class="btn-remove-section" style="padding: 10px; background: #ffebe9; color: #da3633; border: 1px solid #da3633;" onclick="deleteResume('${save.id}')">🗑</button>
                     </div>
-                    <button class="btn-success" style="margin-top:0; padding: 10px; width: 80%;">Continue Editing</button>
                 </div>
             `;
         });
-        
         html += `</div>`;
         container.innerHTML = html;
-
     } catch (err) {
         console.error("Error fetching saves:", err);
     }
 }
 
-async function openBuilder(templateId) {
-    activeTemplateId = templateId; 
-    activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
-    
-    document.getElementById('selection-screen').style.display = 'none';
-    document.getElementById('builder-screen').style.display = 'flex';
-    document.getElementById('output').value = '';
-
-    const canvas = document.getElementById('builder-canvas');
-    
-    if (isUserLoggedIn) {
-        canvas.style.opacity = '0.5';
-        canvas.style.pointerEvents = 'none';
-
-        try {
-            const response = await fetch(`/api/load-resume/${templateId}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.resumeData && data.resumeData.html) {
-                    canvas.innerHTML = data.resumeData.html;
-                    console.log("☁ Resume successfully hydrated from cloud.");
-                    
-                    const customBlocks = canvas.querySelectorAll('[data-type="custom"]');
-                    customSectionCounter = customBlocks.length;
-                    const workBlocks = canvas.querySelectorAll('.work-item');
-                    window.workCounter = workBlocks.length;
-                }
-            } else {
-                console.log("No previous save found. Using default canvas.");
-                if(document.getElementById('education-container').children.length === 0) {
-                     addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
-                }
-            }
-        } catch (err) {
-            console.error("Hydration Error:", err);
-        } finally {
-            canvas.style.opacity = '1';
-            canvas.style.pointerEvents = 'auto';
-        }
+async function deleteResume(id) {
+    if(!confirm("Are you sure you want to delete this resume? This cannot be undone.")) return;
+    try {
+        const res = await fetch(`/api/delete-resume/${id}`, { method: 'DELETE' });
+        if(res.ok) fetchMyResumes(); // Automatically refresh UI
+    } catch (err) {
+        alert("Failed to delete.");
     }
 }
 
 function goBackToSelection() {
     document.getElementById('builder-screen').style.display = 'none';
     document.getElementById('selection-screen').style.display = 'block';
+    fetchMyResumes(); // Fixes the "requires reload" bug!
 }
 
-function toggleSection(element) {
-    const section = element.closest('.draggable-section');
-    section.classList.toggle('collapsed');
+// Opens a BLANK template
+function openBuilder(templateId) {
+    activeTemplateId = templateId; 
+    activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
+    activeResumeName = ''; // Reset name since this is a new file
+    
+    document.getElementById('selection-screen').style.display = 'none';
+    document.getElementById('builder-screen').style.display = 'flex';
+    document.getElementById('output').value = '';
+
+    // Clear canvas and add default block if empty
+    const container = document.getElementById('education-container');
+    if(container) container.innerHTML = '';
+    addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
 }
 
-// --- CLOUD SAVING ---
+// Opens a SAVED file from the dashboard
+async function loadSavedResume(resumeId, templateId) {
+    activeTemplateId = templateId;
+    activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code;
+    
+    document.getElementById('selection-screen').style.display = 'none';
+    document.getElementById('builder-screen').style.display = 'flex';
+    document.getElementById('output').value = '';
+
+    const canvas = document.getElementById('builder-canvas');
+    canvas.style.opacity = '0.5';
+    canvas.style.pointerEvents = 'none';
+
+    try {
+        const response = await fetch(`/api/load-resume/${resumeId}`);
+        if (response.ok) {
+            const data = await response.json();
+            activeResumeName = data.resumeName; // Lock in the file name
+            if (data.resumeData && data.resumeData.html) {
+                canvas.innerHTML = data.resumeData.html;
+                const customBlocks = canvas.querySelectorAll('[data-type="custom"]');
+                customSectionCounter = customBlocks.length;
+                const workBlocks = canvas.querySelectorAll('.work-item');
+                window.workCounter = workBlocks.length;
+            }
+        }
+    } catch (err) {
+        console.error("Load Error:", err);
+    } finally {
+        canvas.style.opacity = '1';
+        canvas.style.pointerEvents = 'auto';
+    }
+}
+
+// --- CLOUD SAVING (WITH NAMING) ---
 async function saveToCloud() {
     const saveBtn = document.getElementById('btn-save-cloud');
     if (!saveBtn) return;
+
+    // Ask for a file name if this is a new draft
+    if (!activeResumeName) {
+        const userInput = prompt("Name your resume file (e.g., SDE_Resume_DTU):", "Draft_1");
+        if (!userInput) return; // Stop if user clicks cancel
+        activeResumeName = userInput;
+    }
 
     const originalText = saveBtn.innerText;
     saveBtn.innerText = "☁ Saving...";
@@ -216,6 +227,7 @@ async function saveToCloud() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 templateId: activeTemplateId,
+                resumeName: activeResumeName,
                 resumeData: { html: canvasHTML }
             })
         });
@@ -233,10 +245,8 @@ async function saveToCloud() {
         }, 3000);
 
     } catch (err) {
-        console.error("Save Error:", err);
         saveBtn.innerText = "✖ Save Failed";
         saveBtn.style.backgroundColor = "#da3633"; 
-        
         setTimeout(() => {
             saveBtn.innerText = originalText;
             saveBtn.style.backgroundColor = "";
@@ -246,20 +256,18 @@ async function saveToCloud() {
     }
 }
 
+function toggleSection(element) { element.closest('.draggable-section').classList.toggle('collapsed'); }
+
 // --- DRAG AND DROP ---
 document.addEventListener('dragstart', e => {
-    if (e.target.classList && e.target.classList.contains('draggable-section')) {
-        e.target.classList.add('dragging');
-    }
+    if (e.target.classList && e.target.classList.contains('draggable-section')) e.target.classList.add('dragging');
 });
-
 document.addEventListener('dragend', e => {
     if (e.target.classList && e.target.classList.contains('draggable-section')) {
         e.target.classList.remove('dragging');
         e.target.removeAttribute('draggable'); 
     }
 });
-
 const canvas = document.getElementById('builder-canvas');
 if (canvas) {
     canvas.addEventListener('dragover', e => {
@@ -272,7 +280,6 @@ if (canvas) {
         }
     });
 }
-
 function getDragAfterElement(container, y) {
     const draggableElements = [...container.querySelectorAll('.draggable-section:not(.dragging):not(#core-header)')];
     return draggableElements.reduce((closest, child) => {
@@ -686,7 +693,6 @@ function getCompiledLatex() {
     return activeTemplateLatex.replace('{{RESUME_BODY}}', bodyLatex.trim()).replace(/\n\s*\n/g, '\n\n').trim();
 }
 
-// --- GLOBAL EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
     const btnGenerate = document.getElementById('btn-generate');
     const btnDownload = document.getElementById('btn-download');
