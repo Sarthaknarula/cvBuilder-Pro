@@ -1,13 +1,8 @@
-// ==========================================
-// cvBuilder Pro - Frontend Logic
-// Contains: Phase 1 Hydration & Phase 2 Tabs
-// ==========================================
-
 let activeTemplateId = '';
 let activeTemplateLatex = '';
 let removedCoreSections = [];
 let customSectionCounter = 0; 
-let isUserLoggedIn = false; // Track global login state
+let isUserLoggedIn = false; 
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -24,17 +19,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (authData.loggedIn) {
                 isUserLoggedIn = true;
                 
-                // Show User Info & Reveal Phase 2 Tabs
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <span style="font-size: 0.9rem; color: #555;">Logged in: <strong>${authData.user.email}</strong></span>
                         <a href="/logout" style="color: #d9534f; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #d9534f; padding: 5px 10px; border-radius: 4px;">Logout</a>
                     </div>
                 `;
-                dashboardTabs.style.display = 'flex'; // Show Dashboard Tabs
-                if (saveCloudBtn) saveCloudBtn.style.display = 'block'; // Show Pro Save button in Editor
+                dashboardTabs.style.display = 'flex'; 
+                if (saveCloudBtn) saveCloudBtn.style.display = 'block'; 
+                
+                fetchMyResumes(); // Load saved resumes into dashboard
+                
             } else {
-                // Not logged in: Show simple login button
                 authSection.innerHTML = `<a href="/auth/google" class="btn-google-login">Login with Google</a>`;
             }
         } catch (err) {
@@ -86,8 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- NAVIGATION & UI LOGIC ---
-
-// DASHBOARD TABS (PHASE 2)
 function openTab(evt, tabId) {
     const contents = document.querySelectorAll('.tab-content');
     contents.forEach(content => content.style.display = 'none');
@@ -99,7 +93,47 @@ function openTab(evt, tabId) {
     evt.currentTarget.classList.add('active');
 }
 
-// HYDRATION LOGIC (PHASE 1)
+async function fetchMyResumes() {
+    const container = document.getElementById('tab-my-resumes');
+    
+    try {
+        const response = await fetch('/api/my-resumes');
+        if (!response.ok) return; 
+        
+        const saves = await response.json();
+        if (saves.length === 0) return;
+
+        let html = `
+            <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
+            <p style="color: #666; font-size: 16px;">Pick up right where you left off.</p>
+            <div class="template-grid">
+        `;
+
+        saves.forEach(save => {
+            const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { 
+                year: 'numeric', month: 'short', day: 'numeric' 
+            });
+            
+            html += `
+                <div class="template-card" onclick="openBuilder('${save.template_id}')">
+                    <div class="preview-wrapper">${save.preview_html}</div>
+                    <div class="template-title">${save.title}</div>
+                    <div class="template-desc" style="color: #0056b3; font-weight: bold;">
+                        Last edited: ${dateStr}
+                    </div>
+                    <button class="btn-success" style="margin-top:0; padding: 10px; width: 80%;">Continue Editing</button>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error("Error fetching saves:", err);
+    }
+}
+
 async function openBuilder(templateId) {
     activeTemplateId = templateId; 
     activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
@@ -110,7 +144,6 @@ async function openBuilder(templateId) {
 
     const canvas = document.getElementById('builder-canvas');
     
-    // Only attempt hydration if the user is logged in
     if (isUserLoggedIn) {
         canvas.style.opacity = '0.5';
         canvas.style.pointerEvents = 'none';
@@ -124,7 +157,6 @@ async function openBuilder(templateId) {
                     canvas.innerHTML = data.resumeData.html;
                     console.log("☁ Resume successfully hydrated from cloud.");
                     
-                    // Re-sync counters
                     const customBlocks = canvas.querySelectorAll('[data-type="custom"]');
                     customSectionCounter = customBlocks.length;
                     const workBlocks = canvas.querySelectorAll('.work-item');
@@ -132,7 +164,6 @@ async function openBuilder(templateId) {
                 }
             } else {
                 console.log("No previous save found. Using default canvas.");
-                // If it's empty, populate with initial Dummy Data
                 if(document.getElementById('education-container').children.length === 0) {
                      addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
                 }
@@ -156,7 +187,7 @@ function toggleSection(element) {
     section.classList.toggle('collapsed');
 }
 
-// --- CLOUD SAVING (PHASE 1) ---
+// --- CLOUD SAVING ---
 async function saveToCloud() {
     const saveBtn = document.getElementById('btn-save-cloud');
     if (!saveBtn) return;
@@ -167,7 +198,6 @@ async function saveToCloud() {
     saveBtn.disabled = true;
 
     try {
-        // Freeze inputs into DOM
         document.querySelectorAll('#builder-canvas input, #builder-canvas textarea, #builder-canvas select').forEach(el => {
             if (el.tagName === 'INPUT') el.setAttribute('value', el.value);
             else if (el.tagName === 'TEXTAREA') el.innerHTML = el.value;

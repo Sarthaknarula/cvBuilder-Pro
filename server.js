@@ -1,6 +1,3 @@
-// Used to run the backend communication (download pdf, fetching templates)
-// Project: cvBuilder-Pro
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -123,6 +120,25 @@ app.get('/api/load-resume/:templateId', async (req, res) => {
     } catch (err) {
         console.error("Database Load Error:", err);
         res.status(500).json({ error: 'Failed to load resume.' });
+    }
+});
+
+app.get('/api/my-resumes', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in' });
+    
+    try {
+        const query = `
+            SELECT r.template_id, r.updated_at, t.title, t.description, t.preview_html
+            FROM resumes r
+            JOIN templates t ON r.template_id = t.id
+            WHERE r.user_id = $1
+            ORDER BY r.updated_at DESC;
+        `;
+        const result = await pool.query(query, [req.user.id]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Fetch My Resumes Error:", err);
+        res.status(500).json({ error: 'Failed to fetch saved resumes.' });
     }
 });
 

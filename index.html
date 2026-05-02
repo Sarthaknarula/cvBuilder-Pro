@@ -4,25 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>cvBuilder Pro | Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style.css">
     <script>
-        // Global storage for templates
         window.resumeTemplates = [];
     </script>
 </head>
 <body>
 
     <!-- ========================================== -->
-    <!-- SCREEN 1: THE DASHBOARD (PHASE 2)          -->
+    <!-- SCREEN 1: THE DASHBOARD                    -->
     <!-- ========================================== -->
     <div id="selection-screen">
         <header class="header-bar" style="max-width: 1000px; margin: 0 auto 20px auto; padding-top: 20px;">
             <div class="brand">
                 <h2>cvBuilder <span style="color: #4285F4;">Pro</span></h2>
             </div>
-            <div id="auth-section">
-                <!-- Script will inject user info or login button here -->
-            </div>
+            <div id="auth-section"></div>
         </header>
 
         <div class="dashboard-container">
@@ -52,7 +49,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- SCREEN 2: THE EDITOR (PHASE 1 HYDRATION)   -->
+    <!-- SCREEN 2: THE EDITOR                       -->
     <!-- ========================================== -->
     <div id="builder-screen" style="display: none;">
         <div class="container">
@@ -65,7 +62,6 @@
 
             <form id="resumeForm">
                 <div id="builder-canvas">
-                    <!-- HEADER SECTION -->
                     <div class="draggable-section" id="core-header" data-type="header">
                         <div class="section-header-flex">
                             <h3 class="collapsible-title" onclick="toggleSection(this)">
@@ -82,7 +78,6 @@
                         </div>
                     </div>
 
-                    <!-- EDUCATION SECTION -->
                     <div class="draggable-section" id="core-edu" data-type="education">
                         <div class="section-header-flex">
                             <div style="display:flex; align-items:center; width:60%;">
@@ -98,7 +93,6 @@
                         <button type="button" class="btn-add" onclick="addEducation()">+ Add Another Education</button>
                     </div>
 
-                    <!-- WORK EXPERIENCE SECTION -->
                     <div class="draggable-section" id="core-work" data-type="work">
                         <div class="section-header-flex">
                             <div style="display:flex; align-items:center; width:60%;">
@@ -114,7 +108,6 @@
                         <button type="button" class="btn-add" onclick="addWorkExperience()">+ Add New Company</button>
                     </div>
 
-                    <!-- PROJECTS SECTION -->
                     <div class="draggable-section" id="core-proj" data-type="project">
                         <div class="section-header-flex">
                             <div style="display:flex; align-items:center; width:60%;">
@@ -130,7 +123,6 @@
                         <button type="button" class="btn-add" onclick="addProject()">+ Add Project</button>
                     </div>
 
-                    <!-- TECHNICAL SKILLS SECTION -->
                     <div class="draggable-section" id="core-skill" data-type="skill">
                         <div class="section-header-flex">
                             <div style="display:flex; align-items:center; width:60%;">
@@ -150,13 +142,11 @@
                     </div>
                 </div>
 
-                <!-- ADD SECTION MENU -->
                 <div class="bottom-action-area">
                     <button type="button" class="btn-add-between" onclick="toggleAddMenu(event, this)">+ Add New Section</button>
                     <div class="add-menu"></div>
                 </div>
 
-                <!-- PRIMARY ACTIONS -->
                 <div class="action-buttons">
                     <button type="button" class="btn-secondary" id="btn-generate">Preview LaTeX</button>
                     <button type="button" class="btn-pro" id="btn-save-cloud" style="display: none;">☁ Save to Cloud</button>
@@ -165,7 +155,6 @@
             </form>
         </div>
 
-        <!-- CODE OUTPUT PANEL -->
         <div class="container">
             <h3>LaTeX Source (Overleaf Compatible)</h3>
             <p style="font-size: 12px; color: #666; margin-top: 0;">Copy this code directly into Overleaf for advanced editing.</p>
