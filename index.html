@@ -4,59 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>cvBuilder Pro | Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
-    <script>
-        window.resumeTemplates = [];
-    </script>
+    <link rel="stylesheet" href="style.css">
+    <script>window.resumeTemplates = [];</script>
 </head>
 <body>
 
-    <!-- ========================================== -->
-    <!-- SCREEN 1: THE DASHBOARD                    -->
-    <!-- ========================================== -->
     <div id="selection-screen">
         <header class="header-bar" style="max-width: 1000px; margin: 0 auto 20px auto; padding-top: 20px;">
-            <div class="brand">
-                <h2>cvBuilder <span style="color: #4285F4;">Pro</span></h2>
-            </div>
+            <div class="brand"><h2>cvBuilder <span style="color: #4285F4;">Pro</span></h2></div>
             <div id="auth-section"></div>
         </header>
 
         <div class="dashboard-container">
-            <!-- The Tab Buttons -->
             <div class="tab-header" id="dashboard-tabs" style="display: none;">
                 <button class="tab-btn active" onclick="openTab(event, 'tab-templates')">Browse Templates</button>
                 <button class="tab-btn" onclick="openTab(event, 'tab-my-resumes')">My Cloud Saves</button>
             </div>
 
-            <!-- Tab Content 1: Templates -->
             <div id="tab-templates" class="tab-content" style="display: block;">
                 <h1 style="color: #333; margin-top: 20px;">Choose Your Template</h1>
                 <p style="color: #666; font-size: 16px;">Select a professional design to start building your LaTeX CV.</p>
                 <div class="template-grid" id="template-grid"></div>
             </div>
 
-            <!-- Tab Content 2: User's Saved Resumes -->
             <div id="tab-my-resumes" class="tab-content" style="display: none;">
                 <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
-                <p style="color: #666; font-size: 16px;">Your previously saved resumes will appear here.</p>
                 <div style="background: white; padding: 40px; border-radius: 10px; border: 2px dashed #ccc; text-align: center; margin-top: 20px;">
                     <h3 style="color: #888;">No saved resumes found yet.</h3>
-                    <p style="color: #aaa;">Head over to "Browse Templates" to start your first CV!</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- SCREEN 2: THE EDITOR                       -->
-    <!-- ========================================== -->
     <div id="builder-screen" style="display: none;">
         <div class="container">
             <header class="header-bar">
-                <div class="brand">
-                    <h2>Resume Editor <span style="color: #4285F4;">Pro</span></h2>
-                </div>
+                <div class="brand"><h2>Resume Editor <span style="color: #4285F4;">Pro</span></h2></div>
                 <button class="btn-back" onclick="goBackToSelection()">← Back to Dashboard</button>
             </header>
 
@@ -64,9 +47,7 @@
                 <div id="builder-canvas">
                     <div class="draggable-section" id="core-header" data-type="header">
                         <div class="section-header-flex">
-                            <h3 class="collapsible-title" onclick="toggleSection(this)">
-                                <span class="toggle-icon">▼</span> Personal Information
-                            </h3>
+                            <h3 class="collapsible-title" onclick="toggleSection(this)"><span class="toggle-icon">▼</span> Personal Information</h3>
                         </div>
                         <div class="flex-row">
                             <div><label>Full Name</label><input type="text" id="name" value="Sarthak Narula"></div>
@@ -161,6 +142,20 @@
             <textarea id="output" readonly onclick="this.select()" placeholder="LaTeX code will appear here..."></textarea>
         </div>
     </div>
+
+    <div id="naming-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Name Your Resume</h3>
+            <p style="color: #666; font-size: 14px;">Give this draft a clear name to find it later.</p>
+            <input type="text" id="resume-name-input" placeholder="e.g., SDE_Resume_DTU" autocomplete="off">
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeNamingModal()">Cancel</button>
+                <button type="button" class="btn-pro" onclick="confirmNameAndSave()">Save to Cloud</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
 
     <script src="script.js"></script>
 </body>

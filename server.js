@@ -99,7 +99,6 @@ app.post('/api/save-resume', async (req, res) => {
     }
 });
 
-// Load a specific saved file by its unique ID
 app.get('/api/load-resume/:id', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in.' });
     try {
@@ -129,7 +128,6 @@ app.get('/api/my-resumes', async (req, res) => {
     }
 });
 
-// NEW: Delete Route
 app.delete('/api/delete-resume/:id', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in' });
     try {

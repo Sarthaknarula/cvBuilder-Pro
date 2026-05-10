@@ -1,9 +1,20 @@
 let activeTemplateId = '';
 let activeTemplateLatex = '';
-let activeResumeName = ''; // NEW: Tracks the current file name
+let activeResumeName = ''; 
 let removedCoreSections = [];
 let customSectionCounter = 0; 
 let isUserLoggedIn = false; 
+
+// --- PRIORITY 1: TOAST NOTIFICATIONS ---
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icon = type === 'success' ? '✔' : type === 'error' ? '✖' : 'ℹ';
+    toast.innerHTML = `<span style="font-size: 18px;">${icon}</span> <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     const authSection = document.getElementById('auth-section');
@@ -51,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.resumeTemplates.forEach(template => {
                 const cardHTML = `
                     <div class="template-card" onclick="openBuilder('${template.id}')">
-                        <div class="preview-wrapper">${template.preview_html}</div>
+                        <div class="preview-wrapper" style="cursor:pointer;">${template.preview_html}</div>
                         <div class="template-title">${template.title}</div>
                         <div class="template-desc">${template.description}</div>
                         <button class="btn-primary" style="margin-top:0; padding: 10px; width: 80%;">Start Fresh Canvas</button>
@@ -65,9 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (document.getElementById('education-container') && !isUserLoggedIn) {
-        addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'Delhi Technological University', '9.15 CGPA');
-        addWorkExperience('Tech Solutions Inc.', '2023 - Present', false); 
-        addRole('work-exp-1', 'Software Engineer', 'June 2023 - Present', 'Developed and maintained scalable web applications.');
+        addEducation(true, 'B.Tech Computer Science Engineering', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
+        addWorkExperience('Tech Solutions Inc.', '2024 - Present', false); 
+        addRole('work-exp-1', 'Software Engineer Intern', 'June 2024 - Present', 'Developed and maintained scalable web applications.');
         addProject('E-Commerce Platform | React, Firebase', '', 'Architected a full-stack e-commerce solution.');
     }
 });
@@ -81,7 +92,6 @@ function openTab(evt, tabId) {
     evt.currentTarget.classList.add('active');
 }
 
-// --- NEW: Dashboard Refresh + Custom Names + Delete Logic ---
 async function fetchMyResumes() {
     const container = document.getElementById('tab-my-resumes');
     try {
@@ -111,7 +121,8 @@ async function fetchMyResumes() {
                     <div class="preview-wrapper" style="cursor:pointer;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">${save.preview_html}</div>
                     <div class="template-title">${save.resume_name}</div>
                     <div class="template-desc" style="color: #0056b3; font-weight: bold; margin-bottom: 10px;">Last edited: ${dateStr}</div>
-                    <div style="display: flex; gap: 10px; width: 100%;">
+                    
+                    <div class="card-actions" style="display: flex; gap: 10px; width: 100%;">
                         <button class="btn-success" style="flex: 1; padding: 10px;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">✎ Edit</button>
                         <button class="btn-remove-section" style="padding: 10px; background: #ffebe9; color: #da3633; border: 1px solid #da3633;" onclick="deleteResume('${save.id}')">🗑</button>
                     </div>
@@ -129,35 +140,35 @@ async function deleteResume(id) {
     if(!confirm("Are you sure you want to delete this resume? This cannot be undone.")) return;
     try {
         const res = await fetch(`/api/delete-resume/${id}`, { method: 'DELETE' });
-        if(res.ok) fetchMyResumes(); // Automatically refresh UI
+        if(res.ok) {
+            showToast("Resume deleted.", "success");
+            fetchMyResumes(); 
+        } else throw new Error();
     } catch (err) {
-        alert("Failed to delete.");
+        showToast("Failed to delete resume.", "error");
     }
 }
 
 function goBackToSelection() {
     document.getElementById('builder-screen').style.display = 'none';
     document.getElementById('selection-screen').style.display = 'block';
-    fetchMyResumes(); // Fixes the "requires reload" bug!
+    fetchMyResumes(); 
 }
 
-// Opens a BLANK template
 function openBuilder(templateId) {
     activeTemplateId = templateId; 
     activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
-    activeResumeName = ''; // Reset name since this is a new file
+    activeResumeName = ''; 
     
     document.getElementById('selection-screen').style.display = 'none';
     document.getElementById('builder-screen').style.display = 'flex';
     document.getElementById('output').value = '';
 
-    // Clear canvas and add default block if empty
     const container = document.getElementById('education-container');
     if(container) container.innerHTML = '';
     addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
 }
 
-// Opens a SAVED file from the dashboard
 async function loadSavedResume(resumeId, templateId) {
     activeTemplateId = templateId;
     activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code;
@@ -174,7 +185,7 @@ async function loadSavedResume(resumeId, templateId) {
         const response = await fetch(`/api/load-resume/${resumeId}`);
         if (response.ok) {
             const data = await response.json();
-            activeResumeName = data.resumeName; // Lock in the file name
+            activeResumeName = data.resumeName; 
             if (data.resumeData && data.resumeData.html) {
                 canvas.innerHTML = data.resumeData.html;
                 const customBlocks = canvas.querySelectorAll('[data-type="custom"]');
@@ -191,22 +202,38 @@ async function loadSavedResume(resumeId, templateId) {
     }
 }
 
-// --- CLOUD SAVING (WITH NAMING) ---
-async function saveToCloud() {
+// --- PRIORITY 1: UPGRADED CLOUD SAVING & MODAL ---
+function saveToCloud() {
+    if (!activeResumeName) {
+        document.getElementById('naming-modal').style.display = 'flex';
+        document.getElementById('resume-name-input').focus();
+    } else {
+        executeSave();
+    }
+}
+
+function closeNamingModal() {
+    document.getElementById('naming-modal').style.display = 'none';
+    document.getElementById('resume-name-input').value = '';
+}
+
+function confirmNameAndSave() {
+    const input = document.getElementById('resume-name-input').value.trim();
+    if (!input) { 
+        showToast("Please enter a name for your resume.", "error"); 
+        return; 
+    }
+    activeResumeName = input;
+    closeNamingModal();
+    executeSave();
+}
+
+async function executeSave() {
     const saveBtn = document.getElementById('btn-save-cloud');
     if (!saveBtn) return;
-
-    // Ask for a file name if this is a new draft
-    if (!activeResumeName) {
-        const userInput = prompt("Name your resume file (e.g., SDE_Resume_DTU):", "Draft_1");
-        if (!userInput) return; // Stop if user clicks cancel
-        activeResumeName = userInput;
-    }
-
-    const originalText = saveBtn.innerText;
-    saveBtn.innerText = "☁ Saving...";
-    saveBtn.style.opacity = "0.7";
+    
     saveBtn.disabled = true;
+    showToast("Saving to cloud...", "info");
 
     try {
         document.querySelectorAll('#builder-canvas input, #builder-canvas textarea, #builder-canvas select').forEach(el => {
@@ -233,26 +260,13 @@ async function saveToCloud() {
         });
 
         if (!response.ok) throw new Error("Failed to save");
-
-        saveBtn.innerText = "✔ Saved!";
-        saveBtn.style.backgroundColor = "#28a745"; 
-        
-        setTimeout(() => {
-            saveBtn.innerText = originalText;
-            saveBtn.style.backgroundColor = ""; 
-            saveBtn.style.opacity = "1";
-            saveBtn.disabled = false;
-        }, 3000);
+        showToast("Resume saved successfully!", "success");
 
     } catch (err) {
-        saveBtn.innerText = "✖ Save Failed";
-        saveBtn.style.backgroundColor = "#da3633"; 
-        setTimeout(() => {
-            saveBtn.innerText = originalText;
-            saveBtn.style.backgroundColor = "";
-            saveBtn.style.opacity = "1";
-            saveBtn.disabled = false;
-        }, 3000);
+        console.error("Save Error:", err);
+        showToast("Failed to save resume.", "error");
+    } finally {
+        saveBtn.disabled = false;
     }
 }
 
@@ -299,13 +313,11 @@ function toggleDate(btn, show) {
     if (show) { wrapper.style.display = 'block'; addBtn.style.display = 'none'; } 
     else { wrapper.style.display = 'none'; addBtn.style.display = 'inline'; input.value = ''; }
 }
-
 function removeCoreSection(sectionId, sectionName) {
     const section = document.getElementById(sectionId);
     section.style.display = 'none';
     if (!removedCoreSections.find(s => s.id === sectionId)) removedCoreSections.push({id: sectionId, name: sectionName});
 }
-
 function removeCustomSection(btn) { btn.closest('.draggable-section').remove(); }
 
 function toggleAddMenu(event, btn) {
@@ -319,7 +331,6 @@ function toggleAddMenu(event, btn) {
     menu.innerHTML += `<button type="button" class="custom-add-btn" onclick="spawnCustomBlock()">+ Create New Custom Section</button>`;
     menu.style.display = 'flex';
 }
-
 function restoreCoreSection(sectionId) {
     const section = document.getElementById(sectionId);
     document.getElementById('builder-canvas').appendChild(section);
@@ -327,11 +338,9 @@ function restoreCoreSection(sectionId) {
     removedCoreSections = removedCoreSections.filter(s => s.id !== sectionId);
     document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 }
-
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.bottom-action-area')) document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 });
-
 function addDescLine(btn) {
     const container = btn.previousElementSibling;
     const html = `
@@ -343,7 +352,7 @@ function addDescLine(btn) {
     container.insertAdjacentHTML('beforeend', html);
 }
 
-// --- ADDING SPECIFIC CONTENT BLOCKS ---
+// --- CONTENT BLOCKS ---
 function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
     const container = document.getElementById('education-container');
     if (!container) return;
@@ -362,7 +371,6 @@ function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
 }
-
 function addProject(title='', link='', desc='') {
     const container = document.getElementById('project-container');
     if (!container) return;
@@ -374,7 +382,6 @@ function addProject(title='', link='', desc='') {
             <button type="button" class="btn-remove-line" onclick="this.parentElement.remove()" title="Remove point">✖</button>
         </div>
     `).join('');
-
     const html = `
         <div class="section-block proj-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
@@ -384,18 +391,13 @@ function addProject(title='', link='', desc='') {
             </div>
             <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label style="margin:0;">Description Format</label>
-                <select class="desc-format format-select">
-                    <option value="bullets">Bullets</option>
-                    <option value="numbers">Numbers</option>
-                    <option value="paragraph">Paragraph</option>
-                </select>
+                <select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select>
             </div>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
 }
-
 function addWorkExperience(company='', date='', autoRole=true) {
     const container = document.getElementById('work-container');
     if (!container) return;
@@ -414,7 +416,6 @@ function addWorkExperience(company='', date='', autoRole=true) {
     container.insertAdjacentHTML('beforeend', html);
     if(autoRole) addRole(workId);
 }
-
 function addRole(workId, title='', rDate='', rDesc='') {
     const container = document.querySelector(`#${workId} .roles-container`);
     if (!container) return;
@@ -426,7 +427,6 @@ function addRole(workId, title='', rDate='', rDesc='') {
             <button type="button" class="btn-remove-line" onclick="this.parentElement.remove()" title="Remove point">✖</button>
         </div>
     `).join('');
-
     const html = `
         <div class="role-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
@@ -436,18 +436,13 @@ function addRole(workId, title='', rDate='', rDesc='') {
             </div>
             <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label style="margin:0;">Description Format</label>
-                <select class="desc-format format-select">
-                    <option value="bullets">Bullets</option>
-                    <option value="numbers">Numbers</option>
-                    <option value="paragraph">Paragraph</option>
-                </select>
+                <select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select>
             </div>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
 }
-
 function spawnCustomBlock(targetElement = null) {
     customSectionCounter++;
     const blockId = `custom-sec-${customSectionCounter}`;
@@ -466,14 +461,11 @@ function spawnCustomBlock(targetElement = null) {
             <div class="custom-items-container"></div>
             <button type="button" class="btn-add" style="margin-top: 10px; background: #fff;" onclick="addCustomItem('${blockId}')">+ Add Item to this Section</button>
         </div>`;
-    
     if (targetElement) targetElement.insertAdjacentHTML('afterend', html);
     else document.getElementById('builder-canvas').insertAdjacentHTML('beforeend', html);
-    
     addCustomItem(blockId);
     document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 }
-
 function addCustomItem(blockId) {
     const container = document.querySelector(`#${blockId} .custom-items-container`);
     const html = `
@@ -521,18 +513,15 @@ function formatText(linesArray, formatType, templateId) {
             : '\\begin{itemize}\n' + linesArray.map(l => `  \\item ${escapeLatex(l)}`).join('\n') + '\n\\end{itemize}';
     }
 }
-
 function escapeLatex(str) {
     if (!str) return '';
     return str.replace(/%/g, '\\%').replace(/&/g, '\\&').replace(/\$/g, '\\$').replace(/#/g, '\\#');
 }
-
 function getHeaderLatex(block) {
     let name = escapeLatex(block.querySelector('#name').value).toUpperCase();
     let phone = escapeLatex(block.querySelector('#phone').value);
     let email = escapeLatex(block.querySelector('#email').value);
     let linksStr = block.querySelector('#links').value ? escapeLatex(block.querySelector('#links').value) : '';
-    
     if (activeTemplateId === 'tpl-professional') {
         let cl = `${phone} $|$ \\href{mailto:${email}}{${email}}`;
         if (linksStr) cl += ` $|$ ${linksStr}`;
@@ -543,7 +532,6 @@ function getHeaderLatex(block) {
         return `\\begin{center}\n  {\\color{black}\\LARGE\\bfseries ${name}}\n\\end{center}\n\\vspace{-4pt}\n\\noindent\n\\begin{tabular*}{\\linewidth}{@{\\extracolsep{\\fill}} l r}\n${cl}\n\\end{tabular*}\n\n`;
     }
 }
-
 function getEducationLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Education';
     let eduRows = [];
@@ -562,7 +550,6 @@ function getEducationLatex(block) {
         ? `%—— EDUCATION ——\n\\section{${secTitle}}\n\\resumeSubHeadingList\n` + eduRows.join('\n') + `\n\\resumeSubHeadingListEnd\n\n`
         : `%—— EDUCATION ——\n\\Section{${secTitle.toUpperCase()}}\n\\begin{tabularx}{\\linewidth}{|X|l|X|r|}\n  \\hline\n` + eduRows.join('\n  \\hhline{|====|}\n') + `\n  \\hline\n\\end{tabularx}\n\n`;
 }
-
 function getWorkLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Experience';
     let workLatex = '';
@@ -611,7 +598,6 @@ function getWorkLatex(block) {
         ? `%—— EXPERIENCE ——\n\\section{${secTitle}}\n\\resumeSubHeadingList\n` + workLatex + `\\resumeSubHeadingListEnd\n\n`
         : `%—— EXPERIENCE ——\n\\Section{${secTitle.toUpperCase()}}\n` + workLatex + `\n`;
 }
-
 function getProjectLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Projects';
     let projLatex = '';
@@ -634,7 +620,6 @@ function getProjectLatex(block) {
         ? `%—— PROJECTS ——\n\\section{${secTitle}}\n\\resumeSubHeadingList\n` + projLatex + `\\resumeSubHeadingListEnd\n\n`
         : `%—— PROJECTS ——\n\\Section{${secTitle.toUpperCase()}}\n` + projLatex + `\n`;
 }
-
 function getSkillLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.core-sec-title').value) || 'Skills';
     let s1 = escapeLatex(block.querySelector('#sk1').value);
@@ -651,7 +636,6 @@ function getSkillLatex(block) {
         return `%—— SKILLS ——\n\\Section{${secTitle.toUpperCase()}}\n\\begin{tabularx}{\\linewidth}{|>{\\centering\\arraybackslash\\small}X|>{\\centering\\arraybackslash\\small}X|>{\\centering\\arraybackslash\\small}X|}\n  \\hline\n  ${s1} & ${s2} & ${s3} \\\\\n  \\hline\n\\end{tabularx}\n\n`;
     }
 }
-
 function getCustomLatex(block) {
     let secTitle = escapeLatex(block.querySelector('.custom-sec-title').value);
     if (!secTitle) return ''; 
@@ -677,7 +661,6 @@ function getCustomLatex(block) {
     if (!hasValidItems) return '';
     return activeTemplateId === 'tpl-professional' ? latex + `\\resumeSubHeadingListEnd\n\n` : latex + `\n`;
 }
-
 function getCompiledLatex() {
     let bodyLatex = '';
     document.querySelectorAll('#builder-canvas .draggable-section').forEach(block => {
@@ -721,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(downloadUrl);
         } catch (error) {
-            console.error(error); alert("Error compiling PDF.");
+            console.error(error); showToast("Error compiling PDF.", "error");
         } finally {
             btnDownload.innerText = originalBtnText; btnDownload.disabled = false;
         }
