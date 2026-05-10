@@ -149,48 +149,93 @@ function openTab(evt, tabId) {
     evt.currentTarget.classList.add('active');
 }
 
+// --- PRIORITY 3: REACTIVE DASHBOARD LOGIC ---
+let mySavedResumes = [];
+let currentWorkspaceView = 'grid'; // Defaults to grid
+
 async function fetchMyResumes() {
-    const container = document.getElementById('tab-my-resumes');
+    const container = document.getElementById('workspace-container');
+    const toolbar = document.getElementById('workspace-toolbar');
+    
     try {
         const response = await fetch('/api/my-resumes');
         if (!response.ok) return; 
         
-        const saves = await response.json();
-        if (saves.length === 0) {
+        mySavedResumes = await response.json();
+        
+        if (mySavedResumes.length === 0) {
+            if (toolbar) toolbar.style.display = 'none';
             container.innerHTML = `
-                <h1 style="margin-top: 20px;">Your Workspace</h1>
                 <div class="empty-state">
                     <h3>No saved resumes found yet.</h3>
                 </div>`;
             return;
         }
 
-        let html = `
-            <h1 style="margin-top: 20px;">Your Workspace</h1>
-            <p class="text-muted" style="font-size: 16px;">Select a project to continue editing.</p>
-            <div class="template-grid">
-        `;
+        if (toolbar) toolbar.style.display = 'flex'; // Show toolbar if they have saves
+        renderWorkspace(); // Draw the UI
 
-        saves.forEach(save => {
-            const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-            html += `
-                <div class="template-card">
-                    <div class="preview-wrapper" style="cursor:pointer;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">${save.preview_html}</div>
-                    <div class="template-title">${save.resume_name}</div>
-                    <div class="template-desc" style="color: #0056b3; font-weight: bold; margin-bottom: 10px;">Last edited: ${dateStr}</div>
-                    
-                    <div class="card-actions" style="display: flex; gap: 10px; width: 100%;">
-                        <button class="btn-success" style="flex: 1; padding: 10px;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">✎ Edit</button>
-                        <button class="btn-remove-section" style="padding: 10px; border: 1px solid #da3633;" onclick="deleteResume('${save.id}')">🗑</button>
-                    </div>
-                </div>
-            `;
-        });
-        html += `</div>`;
-        container.innerHTML = html;
     } catch (err) {
         console.error("Error fetching saves:", err);
     }
+}
+
+function setWorkspaceView(viewType) {
+    currentWorkspaceView = viewType;
+    document.getElementById('btn-view-grid').classList.toggle('active', viewType === 'grid');
+    document.getElementById('btn-view-list').classList.toggle('active', viewType === 'list');
+    renderWorkspace();
+}
+
+function renderWorkspace() {
+    const container = document.getElementById('workspace-container');
+    const searchEl = document.getElementById('search-resume');
+    const sortEl = document.getElementById('sort-resume');
+
+    const searchQuery = searchEl ? searchEl.value.toLowerCase() : '';
+    const sortMethod = sortEl ? sortEl.value : 'newest';
+
+    // 1. Filter by Search
+    let filteredResumes = mySavedResumes.filter(save => 
+        save.resume_name.toLowerCase().includes(searchQuery)
+    );
+
+    // 2. Apply Sorting
+    filteredResumes.sort((a, b) => {
+        if (sortMethod === 'newest') return new Date(b.updated_at) - new Date(a.updated_at);
+        if (sortMethod === 'oldest') return new Date(a.updated_at) - new Date(b.updated_at);
+        if (sortMethod === 'az') return a.resume_name.localeCompare(b.resume_name);
+        if (sortMethod === 'za') return b.resume_name.localeCompare(a.resume_name);
+        return 0;
+    });
+
+    // 3. Render the HTML
+    if (filteredResumes.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p class="text-muted">No resumes match your search.</p></div>`;
+        return;
+    }
+
+    const gridClass = currentWorkspaceView === 'list' ? 'template-grid list-view' : 'template-grid';
+    let html = `<div class="${gridClass}">`;
+
+    filteredResumes.forEach(save => {
+        const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        html += `
+            <div class="template-card">
+                <div class="preview-wrapper" style="cursor:pointer;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">${save.preview_html}</div>
+                <div class="template-title">${save.resume_name}</div>
+                <div class="template-desc" style="color: var(--brand-blue); font-weight: bold; margin-bottom: 10px;">Last edited: ${dateStr}</div>
+                
+                <div class="card-actions" style="display: flex; gap: 10px; width: 100%;">
+                    <button class="btn-success" style="flex: 1; padding: 10px;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">✎ Edit</button>
+                    <button class="btn-remove-section" style="padding: 10px; border: 1px solid var(--danger-text);" onclick="deleteResume('${save.id}')">🗑</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    container.innerHTML = html;
 }
 
 async function deleteResume(id) {

@@ -31,9 +31,30 @@
             </div>
 
             <div id="tab-my-resumes" class="tab-content" style="display: none;">
-                <h1 style="margin-top: 20px;">Your Workspace</h1>
-                <div class="empty-state">
-                    <h3>No saved resumes found yet.</h3>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
+                    <h1 style="margin: 0;">Your Workspace</h1>
+                    
+                    <div id="workspace-toolbar" style="display: none; gap: 15px; align-items: center;">
+                        <input type="text" id="search-resume" placeholder="Search resumes..." oninput="renderWorkspace()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); width: 200px;">
+                        
+                        <select id="sort-resume" onchange="renderWorkspace()" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main);">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="az">Alphabetical (A-Z)</option>
+                            <option value="za">Alphabetical (Z-A)</option>
+                        </select>
+                        
+                        <div style="display: flex; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                            <button id="btn-view-grid" class="view-btn active" onclick="setWorkspaceView('grid')" title="Grid View" style="border-radius: 0;">⊞</button>
+                            <button id="btn-view-list" class="view-btn" onclick="setWorkspaceView('list')" title="List View" style="border-radius: 0; border-left: 1px solid var(--border-color);">☰</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="workspace-container" style="margin-top: 20px;">
+                    <div class="empty-state">
+                        <h3>Loading workspace...</h3>
+                    </div>
                 </div>
             </div>
         </div>

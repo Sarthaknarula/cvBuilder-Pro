@@ -216,3 +216,30 @@ button:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
+
+/* ========================================== */
+/* PRIORITY 3: DASHBOARD SCALING              */
+/* ========================================== */
+
+.view-btn { background: transparent; color: var(--text-muted); padding: 8px 12px; font-size: 16px; cursor: pointer; transition: 0.2s; border: none;}
+.view-btn:hover { background: var(--bg-hover); color: var(--text-main); transform: none; box-shadow: none;}
+.view-btn.active { background: var(--brand-light); color: var(--brand-blue); font-weight: bold;}
+
+/* The List View Transformation */
+.template-grid.list-view { flex-direction: column; align-items: stretch; gap: 15px; }
+.template-grid.list-view .template-card { width: 100%; flex-direction: row; justify-content: space-between; padding: 15px 25px; box-sizing: border-box; height: auto;}
+.template-grid.list-view .preview-wrapper { display: none; } /* Hides thumbnail to save space */
+.template-grid.list-view .template-title { margin: 0; font-size: 18px; width: 30%; text-align: left;}
+.template-grid.list-view .template-desc { margin: 0; text-align: left; width: 30%; font-size: 13px;}
+.template-grid.list-view .card-actions { opacity: 1; pointer-events: auto; transform: none; width: 200px; }
+
+/* Stop buttons from stretching in List View */
+.template-grid.list-view .card-actions { 
+    width: auto; /* Lets the container shrink */
+    justify-content: flex-end; /* Pushes buttons to the right */
+}
+
+.template-grid.list-view .card-actions button { 
+    flex: none !important; /* Overrides the inline JS stretch */
+    padding: 8px 15px !important; /* Makes the buttons sleek and compact */
+}
