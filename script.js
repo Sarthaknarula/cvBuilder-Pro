@@ -17,6 +17,57 @@ function showToast(message, type = 'success') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // --- PRIORITY 2: THEME TOGGLE ---
+    const toggleBtn = document.getElementById('theme-toggle');
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    if (currentTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        if (toggleBtn) toggleBtn.innerText = '☀️';
+    }
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            let theme = document.documentElement.getAttribute('data-theme');
+            if (theme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                toggleBtn.innerText = '🌙';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                toggleBtn.innerText = '☀️';
+            }
+        });
+    }
+
+    // --- PRIORITY 2: SPLIT SCREEN RESIZER ---
+    const resizer = document.getElementById('dragMe');
+    const leftPane = document.getElementById('left-pane');
+    const rightPane = document.getElementById('right-pane');
+    let x = 0; let leftWidth = 0;
+    const mouseDownHandler = function (e) {
+        x = e.clientX;
+        leftWidth = leftPane.getBoundingClientRect().width;
+        resizer.classList.add('resizing');
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
+    };
+    const mouseMoveHandler = function (e) {
+        const dx = e.clientX - x;
+        const newLeftWidth = ((leftWidth + dx) * 100) / resizer.parentNode.getBoundingClientRect().width;
+        if(newLeftWidth > 20 && newLeftWidth < 80) {
+            leftPane.style.flex = `0 0 ${newLeftWidth}%`;
+            rightPane.style.flex = `1 1 0%`;
+        }
+    };
+    const mouseUpHandler = function () {
+        resizer.classList.remove('resizing');
+        document.removeEventListener('mousemove', mouseMoveHandler);
+        document.removeEventListener('mouseup', mouseUpHandler);
+    };
+    if (resizer) resizer.addEventListener('mousedown', mouseDownHandler);
+
+    // --- EXISTING AUTH & INIT LOGIC ---
     const authSection = document.getElementById('auth-section');
     const dashboardTabs = document.getElementById('dashboard-tabs');
     const saveCloudBtn = document.getElementById('btn-save-cloud');
@@ -30,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isUserLoggedIn = true;
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
-                        <span style="font-size: 0.9rem; color: #555;">Logged in: <strong>${authData.user.email}</strong></span>
+                        <span style="font-size: 0.9rem; color: var(--text-muted);">Logged in: <strong>${authData.user.email}</strong></span>
                         <a href="/logout" style="color: #d9534f; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #d9534f; padding: 5px 10px; border-radius: 4px;">Logout</a>
                     </div>
                 `;
@@ -47,7 +98,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const grid = document.getElementById('template-grid');
     if (grid) {
-        grid.innerHTML = '<p>Loading templates from database...</p>';
+        // --- PRIORITY 2: SKELETON PRELOADER ---
+        grid.innerHTML = `
+            <div class="skel-card"><div class="skeleton skel-img"></div><div class="skeleton skel-text"></div><div class="skeleton skel-btn"></div></div>
+            <div class="skel-card"><div class="skeleton skel-img"></div><div class="skeleton skel-text"></div><div class="skeleton skel-btn"></div></div>
+            <div class="skel-card"><div class="skeleton skel-img"></div><div class="skeleton skel-text"></div><div class="skeleton skel-btn"></div></div>
+        `;
+
         try {
             const response = await fetch('/api/templates');
             const dbTemplates = await response.json();
@@ -101,30 +158,30 @@ async function fetchMyResumes() {
         const saves = await response.json();
         if (saves.length === 0) {
             container.innerHTML = `
-                <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
-                <div style="background: white; padding: 40px; border-radius: 10px; border: 2px dashed #ccc; text-align: center; margin-top: 20px;">
-                    <h3 style="color: #888;">No saved resumes found yet.</h3>
+                <h1 style="margin-top: 20px;">Your Workspace</h1>
+                <div class="empty-state">
+                    <h3>No saved resumes found yet.</h3>
                 </div>`;
             return;
         }
 
         let html = `
-            <h1 style="color: #333; margin-top: 20px;">Your Workspace</h1>
-            <p style="color: #666; font-size: 16px;">Select a project to continue editing.</p>
+            <h1 style="margin-top: 20px;">Your Workspace</h1>
+            <p class="text-muted" style="font-size: 16px;">Select a project to continue editing.</p>
             <div class="template-grid">
         `;
 
         saves.forEach(save => {
             const dateStr = new Date(save.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
             html += `
-                <div class="template-card" style="border: 1px solid #ddd;">
+                <div class="template-card">
                     <div class="preview-wrapper" style="cursor:pointer;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">${save.preview_html}</div>
                     <div class="template-title">${save.resume_name}</div>
                     <div class="template-desc" style="color: #0056b3; font-weight: bold; margin-bottom: 10px;">Last edited: ${dateStr}</div>
                     
                     <div class="card-actions" style="display: flex; gap: 10px; width: 100%;">
                         <button class="btn-success" style="flex: 1; padding: 10px;" onclick="loadSavedResume('${save.id}', '${save.template_id}')">✎ Edit</button>
-                        <button class="btn-remove-section" style="padding: 10px; background: #ffebe9; color: #da3633; border: 1px solid #da3633;" onclick="deleteResume('${save.id}')">🗑</button>
+                        <button class="btn-remove-section" style="padding: 10px; border: 1px solid #da3633;" onclick="deleteResume('${save.id}')">🗑</button>
                     </div>
                 </div>
             `;
@@ -411,7 +468,7 @@ function addWorkExperience(company='', date='', autoRole=true) {
                 <div><label>Total Duration</label><input type="text" class="w-date" value="${date}" placeholder="e.g., 2021 - Present"></div>
             </div>
             <div class="roles-container"></div>
-            <button type="button" class="btn-add" style="margin-top: 10px; background: #fff;" onclick="addRole('${workId}')">+ Add Role under this Company</button>
+            <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addRole('${workId}')">+ Add Role under this Company</button>
         </div>`;
     container.insertAdjacentHTML('beforeend', html);
     if(autoRole) addRole(workId);
@@ -459,7 +516,7 @@ function spawnCustomBlock(targetElement = null) {
                 </div>
             </div>
             <div class="custom-items-container"></div>
-            <button type="button" class="btn-add" style="margin-top: 10px; background: #fff;" onclick="addCustomItem('${blockId}')">+ Add Item to this Section</button>
+            <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addCustomItem('${blockId}')">+ Add Item to this Section</button>
         </div>`;
     if (targetElement) targetElement.insertAdjacentHTML('afterend', html);
     else document.getElementById('builder-canvas').insertAdjacentHTML('beforeend', html);
@@ -472,11 +529,11 @@ function addCustomItem(blockId) {
         <div class="section-block custom-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
             <div class="form-group">
-                <label>Item Heading (Optional) <span class="add-date-btn" style="color:#0056b3; cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Add Date]</span></label>
+                <label>Item Heading (Optional) <span class="add-date-btn" style="color:var(--brand-blue); cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Add Date]</span></label>
                 <input type="text" class="c-heading" placeholder="e.g., Coordinator, Tech Fest">
             </div>
             <div class="form-group date-wrapper">
-                <label>Duration (Optional)<span style="color:#da3633; cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label>
+                <label>Duration (Optional)<span style="color:var(--danger-text); cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label>
                 <input type="text" class="c-date" placeholder="e.g., 2021 - 2022">
             </div>
             <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
