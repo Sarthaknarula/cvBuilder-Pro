@@ -25,10 +25,8 @@ function showToast(message, type = 'success') {
  * MODULE 2: INITIALIZATION & AUTHENTICATION
  * =========================================================================== */
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Take Snapshot of Empty Editor
     defaultCanvasHTML = document.getElementById('builder-canvas').innerHTML;
 
-    // 2. Setup Theme Toggle (FOUC is already handled in index.html head)
     const toggleBtn = document.getElementById('theme-toggle');
     if (toggleBtn) {
         toggleBtn.innerText = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
@@ -45,17 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 3. Setup Split Screen Resizer
     initResizer();
-
-    // 4. Authenticate User
     await checkAuthStatus();
-
-    // 5. Fetch Templates & Init Canvas
     await fetchTemplates();
     initDefaultCanvas();
 
-    // 6. Bind Final Event Listeners
     document.getElementById('btn-generate')?.addEventListener('click', () => document.getElementById('output').value = getCompiledLatex());
     document.getElementById('btn-save-cloud')?.addEventListener('click', saveToCloud);
     document.getElementById('btn-download')?.addEventListener('click', downloadPDF);
@@ -344,8 +336,30 @@ function initDefaultCanvas() {
         addEducation(true, 'B.Tech Computer Science Engineering', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
         addWorkExperience('Tech Solutions Inc.', '2024 - Present', false); 
         addRole('work-exp-1', 'Software Engineer Intern', 'June 2024 - Present', 'Developed and maintained scalable web applications.');
-        addProject('E-Commerce Platform | React, Firebase', '', 'Architected a full-stack e-commerce solution.');
+        addProject('E-Commerce Platform | React, Firebase', 'Live Demo', 'https://github.com', 'Architected a full-stack e-commerce solution.');
     }
+}
+
+function addHeaderLink(linkName = '', linkUrl = '') {
+    const html = `
+        <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
+            <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. GitHub" value="${linkName}"></div>
+            <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="https://..." value="${linkUrl}"></div>
+            <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
+        </div>
+    `;
+    document.getElementById('header-links-container')?.insertAdjacentHTML('beforeend', html);
+}
+
+function addSkill(heading = '', details = '') {
+    const html = `
+        <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
+            <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Languages" value="${heading}"></div>
+            <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. C++, Java" value="${details}"></div>
+            <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
+        </div>
+    `;
+    document.getElementById('skill-container')?.insertAdjacentHTML('beforeend', html);
 }
 
 function getDescHTML(linesArr = ['']) {
@@ -384,18 +398,23 @@ function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
         </div>`;
     document.getElementById('education-container')?.insertAdjacentHTML('beforeend', html);
 }
-function addProject(title='', link='', desc='') {
+
+function addProject(title='', linkName='', linkUrl='', desc='') {
     const linesHtml = getDescHTML(desc.split('\n').map(l => l.trim()).filter(l => l).length ? desc.split('\n') : ['']);
     const html = `
         <div class="section-block proj-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>
-            <div class="flex-row"><div><label>Project Name & Tech</label><input type="text" class="p-title" value="${title}"></div><div><label>Link</label><input type="text" class="p-link" value="${link}"></div></div>
-            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><label style="margin:0;">Format</label><select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select></div>
+            <div class="flex-row">
+                <div style="flex: 2;"><label>Project Name & Tech</label><input type="text" class="p-title" value="${title}"></div>
+                <div style="flex: 1;"><label>Link Text</label><input type="text" class="p-link-name" placeholder="e.g. GitHub" value="${linkName}"></div>
+                <div style="flex: 1.5;"><label>URL</label><input type="text" class="p-link-url" placeholder="https://..." value="${linkUrl}"></div>
+            </div>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
     document.getElementById('project-container')?.insertAdjacentHTML('beforeend', html);
 }
+
 function addWorkExperience(company='', date='', autoRole=true) {
     window.workCounter = (window.workCounter || 0) + 1; const workId = `work-exp-${window.workCounter}`;
     const html = `
@@ -408,18 +427,19 @@ function addWorkExperience(company='', date='', autoRole=true) {
     document.getElementById('work-container')?.insertAdjacentHTML('beforeend', html);
     if(autoRole) addRole(workId);
 }
+
 function addRole(workId, title='', rDate='', rDesc='') {
     const linesHtml = getDescHTML(rDesc.split('\n').map(l => l.trim()).filter(l => l).length ? rDesc.split('\n') : ['']);
     const html = `
         <div class="role-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
             <div class="flex-row"><div><label>Role</label><input type="text" class="r-title" value="${title}"></div><div><label>Duration</label><input type="text" class="r-date" value="${rDate}"></div></div>
-            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><label style="margin:0;">Format</label><select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select></div>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
     document.querySelector(`#${workId} .roles-container`)?.insertAdjacentHTML('beforeend', html);
 }
+
 function spawnCustomBlock() {
     customSectionCounter++; const blockId = `custom-sec-${customSectionCounter}`;
     const html = `
@@ -434,13 +454,13 @@ function spawnCustomBlock() {
     document.getElementById('builder-canvas').insertAdjacentHTML('beforeend', html);
     addCustomItem(blockId); document.querySelectorAll('.add-menu').forEach(m => m.style.display = 'none');
 }
+
 function addCustomItem(blockId) {
     const html = `
         <div class="section-block custom-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
             <div class="form-group"><label>Heading <span class="add-date-btn" style="color:var(--brand-blue); cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Date]</span></label><input type="text" class="c-heading"></div>
             <div class="form-group date-wrapper"><label>Duration <span style="color:var(--danger-text); cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label><input type="text" class="c-date"></div>
-            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><label style="margin:0;">Format</label><select class="desc-format format-select"><option value="bullets">Bullets</option><option value="numbers">Numbers</option><option value="paragraph">Paragraph</option></select></div>
             <div class="desc-lines-container"><div class="desc-line-item"><textarea class="desc-line"></textarea><button type="button" class="btn-remove-line" onclick="this.parentElement.remove()">✖</button></div></div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
@@ -450,30 +470,55 @@ function addCustomItem(blockId) {
 /** ===========================================================================
  * MODULE 6: LATEX COMPILATION ENGINE
  * =========================================================================== */
-function escapeLatex(str) { return str ? str.replace(/%/g, '\\%').replace(/&/g, '\\&').replace(/\$/g, '\\$').replace(/#/g, '\\#') : ''; }
+function escapeLatex(str) { 
+    return str ? str.replace(/%/g, '\\%').replace(/&/g, '\\&').replace(/\$/g, '\\$').replace(/#/g, '\\#').replace(/_/g, '\\_') : ''; 
+}
 
-function formatText(linesArray, formatType, templateId) {
+function formatText(linesArray, templateId) {
     if (!linesArray || linesArray.length === 0) return '';
     const isPro = templateId === 'tpl-professional';
-    if (linesArray.length === 1 || formatType === 'paragraph') {
-        let text = linesArray.map(escapeLatex).join(' \\\\[3pt]\n');
-        return isPro ? `\\begin{itemize}[leftmargin=0in, label={}, itemsep=0pt, topsep=3pt, parsep=0pt, partopsep=0pt]\n  \\item \\small{${text}}\n\\end{itemize}` : `\\vspace{2pt}\n${text}`;
+    
+    if (linesArray.length === 1) {
+        let text = escapeLatex(linesArray[0]);
+        return isPro 
+            ? `\\begin{itemize}[leftmargin=0in, label={}, itemsep=0pt, topsep=3pt, parsep=0pt, partopsep=0pt]\n  \\item \\small{${text}}\n\\end{itemize}` 
+            : `\\\\\n\\vspace{2pt}\n${text}`; 
     }
-    if (formatType === 'numbers') {
-        return isPro ? '\\begin{enumerate}[leftmargin=0.20in,itemsep=0pt,topsep=3pt,parsep=0pt,partopsep=0pt]\n' + linesArray.map(l => `  \\item \\small{${escapeLatex(l)}}`).join('\n') + '\n\\end{enumerate}' : '\\begin{enumerate}\n' + linesArray.map(l => `  \\item ${escapeLatex(l)}`).join('\n') + '\n\\end{enumerate}';
+
+    return isPro 
+        ? '\\resumeItemListStart\n' + linesArray.map(l => `  \\resumeItem{${escapeLatex(l)}}`).join('\n') + '\n\\resumeItemListEnd' 
+        : '\\begin{itemize}\n' + linesArray.map(l => `  \\item ${escapeLatex(l)}`).join('\n') + '\n\\end{itemize}';
+}
+
+function getProSubheading(primary, dateRow1, secondary, dateRow2) {
+    if (!secondary && !dateRow2) {
+        return `  \\vspace{-1pt}\\item[]\n  \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}\n    \\textbf{${primary}} & ${dateRow1} \\\\\n  \\end{tabular*}\\vspace{-4pt}`;
     }
-    return isPro ? '\\resumeItemListStart\n' + linesArray.map(l => `  \\resumeItem{${escapeLatex(l)}}`).join('\n') + '\n\\resumeItemListEnd' : '\\begin{itemize}\n' + linesArray.map(l => `  \\item ${escapeLatex(l)}`).join('\n') + '\n\\end{itemize}';
+    return `  \\resumeSubheading{${primary}}{${dateRow1}}{${secondary}}{${dateRow2}}`;
 }
 
 function getHeaderLatex(block) {
     let name = escapeLatex(block.querySelector('#name').value).toUpperCase();
-    let phone = escapeLatex(block.querySelector('#phone').value);
-    let email = escapeLatex(block.querySelector('#email').value);
-    let links = escapeLatex(block.querySelector('#links').value);
+    
+    let links = [];
+    block.querySelectorAll('.header-link-item').forEach(item => {
+        let lName = escapeLatex(item.querySelector('.h-link-name').value);
+        let lUrl = item.querySelector('.h-link-url').value.trim();
+        
+        if (lName && lUrl) links.push(`\\href{${lUrl}}{${lName}}`);
+        else if (lUrl) links.push(`\\href{${lUrl}}{Link}`);
+        else if (lName) links.push(lName);
+    });
+
     if (activeTemplateId === 'tpl-professional') {
-        return `\\begin{center}\n  \\textbf{\\Huge ${name}} \\\\\n  \\vspace{4pt}\n  \\small\n  ${phone} $|$ \\href{mailto:${email}}{${email}}${links ? ` $|$ ${links}` : ''}\n\\end{center}\n\n`;
-    }
-    return `\\begin{center}\n  {\\color{black}\\LARGE\\bfseries ${name}}\n\\end{center}\n\\vspace{-4pt}\n\\noindent\n\\begin{tabular*}{\\linewidth}{@{\\extracolsep{\\fill}} l r}\n  ${phone} & \\href{mailto:${email}}{${email}} \\\\${links ? `\n  \\multicolumn{2}{c}{${links}} \\\\` : ''}\n\\end{tabular*}\n\n`;
+        let contactString = links.join(' $|$ ');
+        return `\\begin{center}\n  \\textbf{\\Huge ${name}} \\\\\n  \\vspace{4pt}\n  \\small\n  ${contactString}\n\\end{center}\n\n`;
+    } 
+    
+    let latex = `\\begin{center}\n  {\\color{black}\\LARGE\\bfseries ${name}}\n\\end{center}\n\\vspace{-4pt}\n\\noindent\n`;
+    if (links.length > 0) latex += `\\begin{center}\n  ${links.join(' \\ $|$ \\ ')}\n\\end{center}\n\n`;
+    else latex += `\n`;
+    return latex;
 }
 
 function getCompiledLatex() {
@@ -484,14 +529,16 @@ function getCompiledLatex() {
         let title = escapeLatex(block.querySelector('.core-sec-title, .custom-sec-title')?.value) || type;
         
         if(type === 'header') bodyLatex += getHeaderLatex(block);
+        
         else if(type === 'education') {
             let rows = [];
             block.querySelectorAll('.edu-item').forEach(i => {
                 let deg=escapeLatex(i.querySelector('.e-deg').value), yr=escapeLatex(i.querySelector('.e-yr').value), inst=escapeLatex(i.querySelector('.e-inst').value), sc=escapeLatex(i.querySelector('.e-score').value);
-                if(deg||inst) rows.push(activeTemplateId === 'tpl-professional' ? `  \\resumeSubheading{${inst}}{${yr}}{${deg}}{${sc}}` : `  \\textbf{${deg}} & ${yr} & ${inst} & ${sc} \\\\`);
+                if(deg||inst) rows.push(activeTemplateId === 'tpl-professional' ? getProSubheading(inst, yr, deg, sc) : `  \\textbf{${deg}} & ${yr} & ${inst} & ${sc} \\\\`);
             });
             bodyLatex += activeTemplateId === 'tpl-professional' ? `\\section{${title}}\n\\resumeSubHeadingList\n${rows.join('\n')}\n\\resumeSubHeadingListEnd\n\n` : `\\Section{${title.toUpperCase()}}\n\\begin{tabularx}{\\linewidth}{|X|l|X|r|}\n  \\hline\n${rows.join('\n  \\hhline{|====|}\n')}\n  \\hline\n\\end{tabularx}\n\n`;
         }
+        
         else if(type === 'work') {
             let latex = '';
             block.querySelectorAll('.work-item').forEach(cb => {
@@ -503,13 +550,13 @@ function getCompiledLatex() {
                         let rTitle = roles.length ? escapeLatex(roles[0].querySelector('.r-title').value) : '';
                         let rDate = roles.length ? escapeLatex(roles[0].querySelector('.r-date').value) : '';
                         let lines = roles.length ? [...roles[0].querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean) : [];
-                        latex += `  \\resumeSubheading{${comp}}{${cDate}}{${rTitle}}{${rDate}}\n` + (lines.length ? formatText(lines, roles[0].querySelector('.desc-format').value, activeTemplateId) + '\n' : '');
+                        latex += getProSubheading(comp, cDate, rTitle, rDate) + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                     } else {
-                        latex += `  \\resumeSubheadingCompany{${comp}}{${cDate}}{}\n`;
+                        latex += getProSubheading(comp, cDate, '', '') + '\n';
                         roles.forEach(rb => {
                             let rTitle=escapeLatex(rb.querySelector('.r-title').value), rDate=escapeLatex(rb.querySelector('.r-date').value);
                             let lines=[...rb.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
-                            if(rTitle) latex += `  \\resumeSubheadingRole{${rTitle}}{${rDate}}\n` + formatText(lines, rb.querySelector('.desc-format').value, activeTemplateId) + '\n';
+                            if(rTitle) latex += `  \\resumeSubheadingRole{${rTitle}}{${rDate}}\n` + formatText(lines, activeTemplateId) + '\n';
                         });
                     }
                 } else {
@@ -517,38 +564,79 @@ function getCompiledLatex() {
                     roles.forEach(rb => {
                         let rTitle=escapeLatex(rb.querySelector('.r-title').value), rDate=escapeLatex(rb.querySelector('.r-date').value);
                         let lines=[...rb.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
-                        if(rTitle) latex += `\\vspace{2pt}\n\\textbf{\\textit{${rTitle}}}\\hfill\\textcolor{Gray}{\\small ${rDate}}\n${formatText(lines, rb.querySelector('.desc-format').value, activeTemplateId)}\n\n`;
+                        if(rTitle) latex += `\\vspace{2pt}\n\\textbf{\\textit{${rTitle}}}\\hfill\\textcolor{Gray}{\\small ${rDate}}\n${formatText(lines, activeTemplateId)}\n\n`;
                     });
                 }
             });
             bodyLatex += activeTemplateId === 'tpl-professional' ? `\\section{${title}}\n\\resumeSubHeadingList\n${latex}\\resumeSubHeadingListEnd\n\n` : `\\Section{${title.toUpperCase()}}\n${latex}\n`;
         }
+        
         else if(type === 'project') {
             let latex = '';
             block.querySelectorAll('.proj-item').forEach(i => {
-                let pTitle = escapeLatex(i.querySelector('.p-title').value), link = escapeLatex(i.querySelector('.p-link').value);
+                let pTitle = escapeLatex(i.querySelector('.p-title').value);
+                let lName = escapeLatex(i.querySelector('.p-link-name').value);
+                let lUrl = i.querySelector('.p-link-url').value.trim(); 
+                
                 if(!pTitle) return;
                 let lines=[...i.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
+                
+                let linkLatex = '';
+                if (lName && lUrl) linkLatex = `\\href{${lUrl}}{${lName}}`;
+                else if (lUrl) linkLatex = `\\href{${lUrl}}{Link}`;
+                else if (lName) linkLatex = lName; 
+
                 if (activeTemplateId === 'tpl-professional') {
-                    latex += `  \\resumeSubheading{${pTitle}}{}{${link}}{}\n` + (lines.length ? formatText(lines, i.querySelector('.desc-format').value, activeTemplateId) + '\n' : '');
+                    latex += getProSubheading(pTitle, '', linkLatex, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                 } else {
-                    latex += `\\textbf{${pTitle}}${link ? ` | \\href{${link}}{\\underline{\\textcolor{#0056b3}{Link}}}` : ''}\n${formatText(lines, i.querySelector('.desc-format').value, activeTemplateId)}\n\n`;
+                    latex += `\\textbf{${pTitle}}${linkLatex ? ` | ${linkLatex}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
                 }
             });
             bodyLatex += activeTemplateId === 'tpl-professional' ? `\\section{${title}}\n\\resumeSubHeadingList\n${latex}\\resumeSubHeadingListEnd\n\n` : `\\Section{${title.toUpperCase()}}\n${latex}\n`;
         }
+        
+        // FIX: The fully optimized and merged Skill compiler logic 
         else if(type === 'skill') {
-            let s1=escapeLatex(block.querySelector('#sk1').value), s2=escapeLatex(block.querySelector('#sk2').value), s3=escapeLatex(block.querySelector('#sk3').value);
-            if(s1||s2||s3) {
-                if (activeTemplateId === 'tpl-professional') {
-                    let s = `\\section{${title}}\n\\resumeSubHeadingList\n`;
-                    if(s1) s += `  \\item[] \\small\\textbf{Languages/Tools:} ${s1}\n`;
-                    if(s2) s += `  \\item[] \\small\\textbf{Frameworks:} ${s2}\n`;
-                    if(s3) s += `  \\item[] \\small\\textbf{Other:} ${s3}\n`;
-                    bodyLatex += s + `\\resumeSubHeadingListEnd\n\n`;
-                } else {
-                    bodyLatex += `\\Section{${title.toUpperCase()}}\n\\begin{tabularx}{\\linewidth}{|>{\\centering\\arraybackslash\\small}X|>{\\centering\\arraybackslash\\small}X|>{\\centering\\arraybackslash\\small}X|}\n  \\hline\n  ${s1} & ${s2} & ${s3} \\\\\n  \\hline\n\\end{tabularx}\n\n`;
+            let latexLines = [];
+            block.querySelectorAll('.skill-item').forEach(item => {
+                let sHead = escapeLatex(item.querySelector('.s-heading').value);
+                let sDet = escapeLatex(item.querySelector('.s-details').value);
+                if (sHead || sDet) {
+                    latexLines.push({head: sHead, det: sDet});
                 }
+            });
+            
+            if (latexLines.length > 0) {
+                if (activeTemplateId === 'tpl-professional') {
+                    // Joins the array into a single \item block to prevent phantom itemize spacing, and uses \vspace{-4pt} to match other sections
+                    let combinedLines = latexLines.map(l => `\\textbf{${l.head}:} ${l.det}`).join(' \\\\\n    ');
+                    bodyLatex += `\\section{${title}}\n\\resumeSubHeadingList\n  \\item[] \\small{\n    ${combinedLines}\n  }\\vspace{-4pt}\n\\resumeSubHeadingListEnd\n\n`;
+                } else {
+                    // Uses \n joining to prevent a trailing \\ which would cause a blank row in the grid template
+                    let combinedLines = latexLines.map(l => `\\textbf{${l.head}:} ${l.det}`).join(' \\\\\n');
+                    bodyLatex += `\\Section{${title.toUpperCase()}}\n${combinedLines}\n\n`;
+                }
+            }
+        }
+        
+        else if(type === 'custom') {
+            let latex = '';
+            block.querySelectorAll('.custom-item').forEach(i => {
+                let cHeading = escapeLatex(i.querySelector('.c-heading').value);
+                let cDate = escapeLatex(i.querySelector('.c-date').value);
+                if(!cHeading) return;
+                
+                let lines=[...i.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
+                
+                if (activeTemplateId === 'tpl-professional') {
+                    latex += getProSubheading(cHeading, cDate, '', '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
+                } else {
+                    latex += `\\textbf{${cHeading}}${cDate ? `\\hfill\\textcolor{Gray}{${cDate}}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
+                }
+            });
+            
+            if(latex) {
+                bodyLatex += activeTemplateId === 'tpl-professional' ? `\\section{${title}}\n\\resumeSubHeadingList\n${latex}\\resumeSubHeadingListEnd\n\n` : `\\Section{${title.toUpperCase()}}\n${latex}\n`;
             }
         }
     });

@@ -12,6 +12,12 @@
         }
     </script>
     <script>window.resumeTemplates = [];</script>
+
+    <style>
+        /* Applied the native hover effect to BOTH header links and skill items */
+        .header-link-item .btn-remove-line, .skill-item .btn-remove-line { opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .header-link-item:hover .btn-remove-line, .skill-item:hover .btn-remove-line { opacity: 1; }
+    </style>
 </head>
 <body>
 
@@ -77,13 +83,27 @@
                             <h3 class="collapsible-title" onclick="toggleSection(this)"><span class="toggle-icon">▼</span> Personal Information</h3>
                         </div>
                         <div class="flex-row">
-                            <div><label>Full Name</label><input type="text" id="name" value="Sarthak Narula"></div>
-                            <div><label>Phone</label><input type="text" id="phone" value="+91 00000 00000"></div>
+                            <div style="width: 100%;"><label>Full Name</label><input type="text" id="name" value="Sarthak Narula"></div>
                         </div>
-                        <div class="flex-row">
-                            <div><label>Email</label><input type="email" id="email" value="your.email@example.com"></div>
-                            <div><label>Links (LinkedIn/GitHub)</label><input type="text" id="links" value="github.com/username"></div>
+                        
+                        <div id="header-links-container">
+                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. Phone" value="+91 00000 00000"></div>
+                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="e.g. tel:+91..." value=""></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
+                            </div>
+                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. Email" value="your.email@example.com"></div>
+                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="e.g. mailto:..." value="mailto:your.email@example.com"></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
+                            </div>
+                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. LinkedIn" value="LinkedIn"></div>
+                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="https://..." value="linkedin.com/in/username"></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
+                            </div>
                         </div>
+                        <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addHeaderLink()">+ Add Contact Info / Link</button>
                     </div>
 
                     <div class="draggable-section" id="core-edu" data-type="education">
@@ -98,7 +118,7 @@
                             </div>
                         </div>
                         <div id="education-container"></div>
-                        <button type="button" class="btn-add" onclick="addEducation()">+ Add Another Education</button>
+                        <button type="button" class="btn-add" onclick="addEducation()">+ Add Education</button>
                     </div>
 
                     <div class="draggable-section" id="core-work" data-type="work">
@@ -113,7 +133,7 @@
                             </div>
                         </div>
                         <div id="work-container"></div>
-                        <button type="button" class="btn-add" onclick="addWorkExperience()">+ Add New Company</button>
+                        <button type="button" class="btn-add" onclick="addWorkExperience()">+ Add Company</button>
                     </div>
 
                     <div class="draggable-section" id="core-proj" data-type="project">
@@ -142,11 +162,25 @@
                                 <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-skill', 'Technical Skills')">✖ Remove</button>
                             </div>
                         </div>
-                        <div class="flex-row">
-                            <div><label>Languages/Tools</label><input type="text" id="sk1" value="C++, Java, Python, SQL"></div>
-                            <div><label>Frameworks/Libraries</label><input type="text" id="sk2" value="React, Node.js, Express"></div>
-                            <div><label>Developer Tools</label><input type="text" id="sk3" value="Git, Docker, VS Code"></div>
+                        
+                        <div id="skill-container">
+                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Languages" value="Languages / Tools"></div>
+                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. Java, C++" value="C++, Python, JavaScript"></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
+                            </div>
+                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Frameworks" value="Frameworks / Libraries"></div>
+                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. React, Node" value="React, Node.js, Express"></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
+                            </div>
+                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
+                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Tools" value="Other / Soft Skills"></div>
+                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. Git, Docker" value="Agile, Communication"></div>
+                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
+                            </div>
                         </div>
+                        <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addSkill()">+ Add Skill Category</button>
                     </div>
                 </div>
 
