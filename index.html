@@ -14,9 +14,8 @@
     <script>window.resumeTemplates = [];</script>
 
     <style>
-        /* Applied the native hover effect to BOTH header links and skill items */
-        .header-link-item .btn-remove-line, .skill-item .btn-remove-line { opacity: 0; transition: opacity 0.2s ease-in-out; }
-        .header-link-item:hover .btn-remove-line, .skill-item:hover .btn-remove-line { opacity: 1; }
+        .header-link-item .btn-remove-line, .skill-item .btn-remove-line, .item-link-row .btn-remove-line { opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .header-link-item:hover .btn-remove-line, .skill-item:hover .btn-remove-line, .item-link-row:hover .btn-remove-line { opacity: 1; }
     </style>
 </head>
 <body>
@@ -113,7 +112,7 @@
                                 <input type="text" class="core-sec-title custom-sec-title-input" value="Education">
                             </div>
                             <div class="section-controls">
-                                <span class="drag-handle" title="Drag to reorder">☰</span>
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
                                 <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-edu', 'Education')">✖ Remove</button>
                             </div>
                         </div>
@@ -128,7 +127,7 @@
                                 <input type="text" class="core-sec-title custom-sec-title-input" value="Experience">
                             </div>
                             <div class="section-controls">
-                                <span class="drag-handle" title="Drag to reorder">☰</span>
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
                                 <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-work', 'Experience')">✖ Remove</button>
                             </div>
                         </div>
@@ -143,7 +142,7 @@
                                 <input type="text" class="core-sec-title custom-sec-title-input" value="Projects">
                             </div>
                             <div class="section-controls">
-                                <span class="drag-handle" title="Drag to reorder">☰</span>
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
                                 <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-proj', 'Projects')">✖ Remove</button>
                             </div>
                         </div>
@@ -158,7 +157,7 @@
                                 <input type="text" class="core-sec-title custom-sec-title-input" value="Technical Skills">
                             </div>
                             <div class="section-controls">
-                                <span class="drag-handle" title="Drag to reorder">☰</span>
+                                <span class="drag-handle" title="Drag to reorder" onmousedown="this.closest('.draggable-section').setAttribute('draggable', 'true')" onmouseup="this.closest('.draggable-section').removeAttribute('draggable')">☰</span>
                                 <button type="button" class="btn-remove-section" onclick="removeCoreSection('core-skill', 'Technical Skills')">✖ Remove</button>
                             </div>
                         </div>

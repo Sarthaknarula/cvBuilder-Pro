@@ -246,16 +246,33 @@ function initResizer() {
     
     const mouseMove = (e) => {
         const newLeftWidth = ((leftWidth + e.clientX - x) * 100) / resizer.parentNode.getBoundingClientRect().width;
-        if(newLeftWidth > 20 && newLeftWidth < 80) { leftPane.style.flex = `0 0 ${newLeftWidth}%`; rightPane.style.flex = `1 1 0%`; }
+        if(newLeftWidth > 20 && newLeftWidth < 80) { 
+            leftPane.style.flex = `0 0 ${newLeftWidth}%`; 
+            rightPane.style.flex = `1 1 0%`; 
+        }
     };
+    
     const mouseUp = () => {
         resizer.classList.remove('resizing');
+        // FIX: Re-enable text selection and pointer events
+        document.body.style.userSelect = '';
+        leftPane.style.pointerEvents = '';
+        rightPane.style.pointerEvents = '';
         document.removeEventListener('mousemove', mouseMove);
         document.removeEventListener('mouseup', mouseUp);
     };
+    
     resizer.addEventListener('mousedown', (e) => {
-        x = e.clientX; leftWidth = leftPane.getBoundingClientRect().width;
+        e.preventDefault(); // FIX: Prevents browser from treating this as a text-selection click
+        x = e.clientX; 
+        leftWidth = leftPane.getBoundingClientRect().width;
         resizer.classList.add('resizing');
+        
+        // FIX: Globally disable text highlighting and stop textareas from stealing the mouse
+        document.body.style.userSelect = 'none';
+        leftPane.style.pointerEvents = 'none';
+        rightPane.style.pointerEvents = 'none';
+        
         document.addEventListener('mousemove', mouseMove);
         document.addEventListener('mouseup', mouseUp);
     });
@@ -351,6 +368,20 @@ function addHeaderLink(linkName = '', linkUrl = '') {
     document.getElementById('header-links-container')?.insertAdjacentHTML('beforeend', html);
 }
 
+function getItemLinkHTML(linkName = '', linkUrl = '') {
+    return `
+        <div class="flex-row item-link-row" style="margin-top: 5px; align-items: flex-end;">
+            <div style="flex: 1;"><label>Link Text</label><input type="text" class="i-link-name" placeholder="e.g. GitHub" value="${linkName}"></div>
+            <div style="flex: 2;"><label>URL</label><input type="text" class="i-link-url" placeholder="https://..." value="${linkUrl}"></div>
+            <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.item-link-row').remove()" title="Remove Link">✖</button>
+        </div>
+    `;
+}
+
+function addItemLink(btn) {
+    btn.previousElementSibling.insertAdjacentHTML('beforeend', getItemLinkHTML('', ''));
+}
+
 function addSkill(heading = '', details = '') {
     const html = `
         <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
@@ -401,14 +432,15 @@ function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
 
 function addProject(title='', linkName='', linkUrl='', desc='') {
     const linesHtml = getDescHTML(desc.split('\n').map(l => l.trim()).filter(l => l).length ? desc.split('\n') : ['']);
+    const linkHtml = (linkName || linkUrl) ? getItemLinkHTML(linkName, linkUrl) : '';
     const html = `
         <div class="section-block proj-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>
             <div class="flex-row">
-                <div style="flex: 2;"><label>Project Name & Tech</label><input type="text" class="p-title" value="${title}"></div>
-                <div style="flex: 1;"><label>Link Text</label><input type="text" class="p-link-name" placeholder="e.g. GitHub" value="${linkName}"></div>
-                <div style="flex: 1.5;"><label>URL</label><input type="text" class="p-link-url" placeholder="https://..." value="${linkUrl}"></div>
+                <div style="width: 100%;"><label>Project Name & Tech</label><input type="text" class="p-title" value="${title}"></div>
             </div>
+            <div class="item-links-container">${linkHtml}</div>
+            <button type="button" class="btn-add-line" style="color:var(--brand-blue); background:none; padding:0; margin-bottom:8px; font-size:12px;" onclick="addItemLink(this)">+ Add Link</button>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
@@ -434,6 +466,8 @@ function addRole(workId, title='', rDate='', rDesc='') {
         <div class="role-item">
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
             <div class="flex-row"><div><label>Role</label><input type="text" class="r-title" value="${title}"></div><div><label>Duration</label><input type="text" class="r-date" value="${rDate}"></div></div>
+            <div class="item-links-container"></div>
+            <button type="button" class="btn-add-line" style="color:var(--brand-blue); background:none; padding:0; margin-bottom:8px; font-size:12px;" onclick="addItemLink(this)">+ Add Link</button>
             <div class="desc-lines-container">${linesHtml}</div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
@@ -461,6 +495,8 @@ function addCustomItem(blockId) {
             <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
             <div class="form-group"><label>Heading <span class="add-date-btn" style="color:var(--brand-blue); cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Date]</span></label><input type="text" class="c-heading"></div>
             <div class="form-group date-wrapper"><label>Duration <span style="color:var(--danger-text); cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label><input type="text" class="c-date"></div>
+            <div class="item-links-container"></div>
+            <button type="button" class="btn-add-line" style="color:var(--brand-blue); background:none; padding:0; margin-bottom:8px; font-size:12px;" onclick="addItemLink(this)">+ Add Link</button>
             <div class="desc-lines-container"><div class="desc-line-item"><textarea class="desc-line"></textarea><button type="button" class="btn-remove-line" onclick="this.parentElement.remove()">✖</button></div></div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
@@ -495,6 +531,18 @@ function getProSubheading(primary, dateRow1, secondary, dateRow2) {
         return `  \\vspace{-1pt}\\item[]\n  \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}\n    \\textbf{${primary}} & ${dateRow1} \\\\\n  \\end{tabular*}\\vspace{-4pt}`;
     }
     return `  \\resumeSubheading{${primary}}{${dateRow1}}{${secondary}}{${dateRow2}}`;
+}
+
+function extractItemLinks(itemElement) {
+    let links = [];
+    itemElement.querySelectorAll('.item-link-row').forEach(row => {
+        let lName = escapeLatex(row.querySelector('.i-link-name').value);
+        let lUrl = row.querySelector('.i-link-url').value.trim();
+        if (lName && lUrl) links.push(`\\href{${lUrl}}{${lName}}`);
+        else if (lUrl) links.push(`\\href{${lUrl}}{Link}`);
+        else if (lName) links.push(lName);
+    });
+    return links;
 }
 
 function getHeaderLatex(block) {
@@ -549,22 +597,37 @@ function getCompiledLatex() {
                     if (roles.length <= 1) {
                         let rTitle = roles.length ? escapeLatex(roles[0].querySelector('.r-title').value) : '';
                         let rDate = roles.length ? escapeLatex(roles[0].querySelector('.r-date').value) : '';
+                        
+                        let links = roles.length ? extractItemLinks(roles[0]) : [];
+                        let linkString = links.join(' $|$ ');
+                        let fullSecondary = rTitle + (rTitle && linkString ? ` $|$ ` : '') + linkString;
+
                         let lines = roles.length ? [...roles[0].querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean) : [];
-                        latex += getProSubheading(comp, cDate, rTitle, rDate) + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
+                        latex += getProSubheading(comp, cDate, fullSecondary, rDate) + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                     } else {
                         latex += getProSubheading(comp, cDate, '', '') + '\n';
                         roles.forEach(rb => {
                             let rTitle=escapeLatex(rb.querySelector('.r-title').value), rDate=escapeLatex(rb.querySelector('.r-date').value);
+                            
+                            let links = extractItemLinks(rb);
+                            let linkString = links.join(' $|$ ');
+                            let fullSecondary = rTitle + (rTitle && linkString ? ` $|$ ` : '') + linkString;
+
                             let lines=[...rb.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
-                            if(rTitle) latex += `  \\resumeSubheadingRole{${rTitle}}{${rDate}}\n` + formatText(lines, activeTemplateId) + '\n';
+                            if(fullSecondary || rDate) latex += `  \\resumeSubheadingRole{${fullSecondary}}{${rDate}}\n` + formatText(lines, activeTemplateId) + '\n';
                         });
                     }
                 } else {
                     latex += `\\textbf{${comp}}\n\\hfill\\textcolor{Gray}{${cDate}}\n\n`;
                     roles.forEach(rb => {
                         let rTitle=escapeLatex(rb.querySelector('.r-title').value), rDate=escapeLatex(rb.querySelector('.r-date').value);
+                        
+                        let links = extractItemLinks(rb);
+                        let linkString = links.join(' | ');
+                        let fullSecondary = rTitle + (rTitle && linkString ? ` | ` : '') + linkString;
+
                         let lines=[...rb.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
-                        if(rTitle) latex += `\\vspace{2pt}\n\\textbf{\\textit{${rTitle}}}\\hfill\\textcolor{Gray}{\\small ${rDate}}\n${formatText(lines, activeTemplateId)}\n\n`;
+                        if(fullSecondary || rDate) latex += `\\vspace{2pt}\n\\textbf{\\textit{${fullSecondary}}}\\hfill\\textcolor{Gray}{\\small ${rDate}}\n${formatText(lines, activeTemplateId)}\n\n`;
                     });
                 }
             });
@@ -575,27 +638,22 @@ function getCompiledLatex() {
             let latex = '';
             block.querySelectorAll('.proj-item').forEach(i => {
                 let pTitle = escapeLatex(i.querySelector('.p-title').value);
-                let lName = escapeLatex(i.querySelector('.p-link-name').value);
-                let lUrl = i.querySelector('.p-link-url').value.trim(); 
-                
                 if(!pTitle) return;
+
+                let links = extractItemLinks(i);
                 let lines=[...i.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
-                
-                let linkLatex = '';
-                if (lName && lUrl) linkLatex = `\\href{${lUrl}}{${lName}}`;
-                else if (lUrl) linkLatex = `\\href{${lUrl}}{Link}`;
-                else if (lName) linkLatex = lName; 
 
                 if (activeTemplateId === 'tpl-professional') {
-                    latex += getProSubheading(pTitle, '', linkLatex, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
+                    let linkString = links.join(' $|$ ');
+                    latex += getProSubheading(pTitle, '', linkString, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                 } else {
-                    latex += `\\textbf{${pTitle}}${linkLatex ? ` | ${linkLatex}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
+                    let linkStrMod = links.join(' | ');
+                    latex += `\\textbf{${pTitle}}${linkStrMod ? ` | ${linkStrMod}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
                 }
             });
             bodyLatex += activeTemplateId === 'tpl-professional' ? `\\section{${title}}\n\\resumeSubHeadingList\n${latex}\\resumeSubHeadingListEnd\n\n` : `\\Section{${title.toUpperCase()}}\n${latex}\n`;
         }
         
-        // FIX: The fully optimized and merged Skill compiler logic 
         else if(type === 'skill') {
             let latexLines = [];
             block.querySelectorAll('.skill-item').forEach(item => {
@@ -608,11 +666,9 @@ function getCompiledLatex() {
             
             if (latexLines.length > 0) {
                 if (activeTemplateId === 'tpl-professional') {
-                    // Joins the array into a single \item block to prevent phantom itemize spacing, and uses \vspace{-4pt} to match other sections
                     let combinedLines = latexLines.map(l => `\\textbf{${l.head}:} ${l.det}`).join(' \\\\\n    ');
                     bodyLatex += `\\section{${title}}\n\\resumeSubHeadingList\n  \\item[] \\small{\n    ${combinedLines}\n  }\\vspace{-4pt}\n\\resumeSubHeadingListEnd\n\n`;
                 } else {
-                    // Uses \n joining to prevent a trailing \\ which would cause a blank row in the grid template
                     let combinedLines = latexLines.map(l => `\\textbf{${l.head}:} ${l.det}`).join(' \\\\\n');
                     bodyLatex += `\\Section{${title.toUpperCase()}}\n${combinedLines}\n\n`;
                 }
@@ -626,12 +682,16 @@ function getCompiledLatex() {
                 let cDate = escapeLatex(i.querySelector('.c-date').value);
                 if(!cHeading) return;
                 
+                let links = extractItemLinks(i);
                 let lines=[...i.querySelectorAll('.desc-line')].map(el=>el.value.trim()).filter(Boolean);
                 
                 if (activeTemplateId === 'tpl-professional') {
-                    latex += getProSubheading(cHeading, cDate, '', '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
+                    let linkString = links.join(' $|$ ');
+                    latex += getProSubheading(cHeading, cDate, linkString, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                 } else {
-                    latex += `\\textbf{${cHeading}}${cDate ? `\\hfill\\textcolor{Gray}{${cDate}}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
+                    let linkStrMod = links.join(' | ');
+                    let headText = `\\textbf{${cHeading}}` + (linkStrMod ? ` | ${linkStrMod}` : '');
+                    latex += `${headText}${cDate ? `\\hfill\\textcolor{Gray}{${cDate}}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
                 }
             });
             
