@@ -9,7 +9,7 @@
 
 A full-stack, cloud-hosted application that bridges the gap between easy-to-use visual resume builders and professional LaTeX formatting. Fill out a dynamic GUI form, and the backend seamlessly translates your data into LaTeX, compiles it server-side using a TeX Live engine, and streams a high-quality, ATS-optimized PDF directly to your browser — no Overleaf required.
 
-**[🌐 View Live Application](https://cvbuilder-uzk7.onrender.com)**
+**[🌐 View Live Application](https://cvbuilder-pro.onrender.com)**
 *(Hosted on Render's free tier. The initial load may take ~50 seconds if the server is sleeping.)*
 
 ---
