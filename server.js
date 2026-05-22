@@ -60,7 +60,6 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// --- 1. AUTH ROUTES ---
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
 app.get('/api/user', (req, res) => {
@@ -74,7 +73,6 @@ app.get('/logout', (req, res, next) => {
     });
 });
 
-// --- 2. VERSION CONTROL SAVE/LOAD ROUTES ---
 app.post('/api/save-resume', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'You must be logged in.' });
     
@@ -138,7 +136,6 @@ app.delete('/api/delete-resume/:id', async (req, res) => {
     }
 });
 
-// --- 3. TEMPLATE & COMPILATION ROUTES ---
 app.get('/api/templates', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM templates ORDER BY title ASC');

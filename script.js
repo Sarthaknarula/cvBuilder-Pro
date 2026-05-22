@@ -1,6 +1,3 @@
-/** ===========================================================================
- * MODULE 1: GLOBAL STATE & UTILITIES
- * =========================================================================== */
 let activeTemplateId = '';
 let activeTemplateLatex = '';
 let activeResumeName = ''; 
@@ -21,9 +18,6 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-/** ===========================================================================
- * MODULE 2: INITIALIZATION & AUTHENTICATION
- * =========================================================================== */
 document.addEventListener('DOMContentLoaded', async () => {
     defaultCanvasHTML = document.getElementById('builder-canvas').innerHTML;
 
@@ -78,9 +72,6 @@ async function checkAuthStatus() {
     }
 }
 
-/** ===========================================================================
- * MODULE 3: DASHBOARD & CLOUD API (Fetching, Saving, Rendering)
- * =========================================================================== */
 async function fetchTemplates() {
     const grid = document.getElementById('template-grid');
     if (!grid) return;
@@ -234,9 +225,6 @@ async function downloadPDF() {
     finally { btn.innerText = origText; btn.disabled = false; }
 }
 
-/** ===========================================================================
- * MODULE 4: EDITOR UI MECHANICS & EVENT HANDLERS
- * =========================================================================== */
 function initResizer() {
     const resizer = document.getElementById('dragMe');
     const leftPane = document.getElementById('left-pane');
@@ -254,7 +242,6 @@ function initResizer() {
     
     const mouseUp = () => {
         resizer.classList.remove('resizing');
-        // FIX: Re-enable text selection and pointer events
         document.body.style.userSelect = '';
         leftPane.style.pointerEvents = '';
         rightPane.style.pointerEvents = '';
@@ -263,12 +250,11 @@ function initResizer() {
     };
     
     resizer.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // FIX: Prevents browser from treating this as a text-selection click
+        e.preventDefault(); 
         x = e.clientX; 
         leftWidth = leftPane.getBoundingClientRect().width;
         resizer.classList.add('resizing');
         
-        // FIX: Globally disable text highlighting and stop textareas from stealing the mouse
         document.body.style.userSelect = 'none';
         leftPane.style.pointerEvents = 'none';
         rightPane.style.pointerEvents = 'none';
@@ -326,7 +312,6 @@ function toggleDate(btn, show) {
     if(!show) item.querySelector('.c-date').value = '';
 }
 
-// Drag & Drop
 document.addEventListener('dragstart', e => { if (e.target.classList?.contains('draggable-section')) e.target.classList.add('dragging'); });
 document.addEventListener('dragend', e => { if (e.target.classList?.contains('draggable-section')) { e.target.classList.remove('dragging'); e.target.removeAttribute('draggable'); }});
 const canvas = document.getElementById('builder-canvas');
@@ -345,9 +330,6 @@ if (canvas) {
     });
 }
 
-/** ===========================================================================
- * MODULE 5: CONTENT BLOCK GENERATORS
- * =========================================================================== */
 function initDefaultCanvas() {
     if (!isUserLoggedIn && document.getElementById('education-container')) {
         addEducation(true, 'B.Tech Computer Science Engineering', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
@@ -503,9 +485,6 @@ function addCustomItem(blockId) {
     document.querySelector(`#${blockId} .custom-items-container`)?.insertAdjacentHTML('beforeend', html);
 }
 
-/** ===========================================================================
- * MODULE 6: LATEX COMPILATION ENGINE
- * =========================================================================== */
 function escapeLatex(str) { 
     return str ? str.replace(/%/g, '\\%').replace(/&/g, '\\&').replace(/\$/g, '\\$').replace(/#/g, '\\#').replace(/_/g, '\\_') : ''; 
 }

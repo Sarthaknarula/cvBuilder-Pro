@@ -1,6 +1,3 @@
-// This file is used to link with the databse, here postgre sql
-
-// configuring the .env file
 require('dotenv').config();
 
 const { Pool } = require('pg');
@@ -205,10 +202,8 @@ async function seedDatabase() {
         `);
         console.log("✅ Table 'templates' created/verified.");
 
-        // Delete current data before loading new
         await pool.query('DELETE FROM templates;');
 
-        // Insert the templates
         for (const tpl of templates) {
             await pool.query(
                 `INSERT INTO templates (id, title, description, preview_html, latex_code) 
