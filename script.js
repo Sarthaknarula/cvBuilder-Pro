@@ -405,7 +405,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.bottom-action-
 function addEducation(isCompulsory = false, deg='', yr='', inst='', score='') {
     const html = `
         <div class="section-block edu-item">
-            ${isCompulsory ? '' : `<button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>`}
+            ${isCompulsory ? '' : `<button type="button" class="btn-remove" onclick="this.parentElement.remove()">✖ Remove</button>`}
             <div class="flex-row"><div><label>Degree</label><input type="text" class="e-deg" value="${deg}"></div><div><label>Year</label><input type="text" class="e-yr" value="${yr}"></div></div>
             <div class="flex-row"><div><label>Institution</label><input type="text" class="e-inst" value="${inst}"></div><div><label>Score/CGPA</label><input type="text" class="e-score" value="${score}"></div></div>
         </div>`;
@@ -417,7 +417,7 @@ function addProject(title='', linkName='', linkUrl='', desc='') {
     const linkHtml = (linkName || linkUrl) ? getItemLinkHTML(linkName, linkUrl) : '';
     const html = `
         <div class="section-block proj-item">
-            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">✖ Remove</button>
             <div class="flex-row">
                 <div style="width: 100%;"><label>Project Name & Tech</label><input type="text" class="p-title" value="${title}"></div>
             </div>
@@ -433,7 +433,7 @@ function addWorkExperience(company='', date='', autoRole=true) {
     window.workCounter = (window.workCounter || 0) + 1; const workId = `work-exp-${window.workCounter}`;
     const html = `
         <div class="section-block work-item" id="${workId}">
-            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Company</button>
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">✖ Remove</button>
             <div class="flex-row"><div><label>Company</label><input type="text" class="w-company" value="${company}"></div><div><label>Duration</label><input type="text" class="w-date" value="${date}"></div></div>
             <div class="roles-container"></div>
             <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addRole('${workId}')">+ Add Role</button>
@@ -446,7 +446,7 @@ function addRole(workId, title='', rDate='', rDesc='') {
     const linesHtml = getDescHTML(rDesc.split('\n').map(l => l.trim()).filter(l => l).length ? rDesc.split('\n') : ['']);
     const html = `
         <div class="role-item">
-            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">✖</button>
             <div class="flex-row"><div><label>Role</label><input type="text" class="r-title" value="${title}"></div><div><label>Duration</label><input type="text" class="r-date" value="${rDate}"></div></div>
             <div class="item-links-container"></div>
             <button type="button" class="btn-add-line" style="color:var(--brand-blue); background:none; padding:0; margin-bottom:8px; font-size:12px;" onclick="addItemLink(this)">+ Add Link</button>
@@ -474,12 +474,15 @@ function spawnCustomBlock() {
 function addCustomItem(blockId) {
     const html = `
         <div class="section-block custom-item">
-            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove Item</button>
-            <div class="form-group"><label>Heading <span class="add-date-btn" style="color:var(--brand-blue); cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Date]</span></label><input type="text" class="c-heading"></div>
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove()" title="Remove this item">✖ Remove</button>
+            <div class="form-group">
+                <label>Heading <button type="button" class="tiny-bold-btn active" onclick="this.classList.toggle('active')" title="Toggle Bold">B</button> <span class="add-date-btn" style="color:var(--brand-blue); cursor:pointer; font-size:10px; margin-left:10px; display:none;" onclick="toggleDate(this, true)">[+ Date]</span></label>
+                <input type="text" class="c-heading" placeholder="e.g. Winner, Smart India Hackathon">
+            </div>
             <div class="form-group date-wrapper"><label>Duration <span style="color:var(--danger-text); cursor:pointer; font-size:10px; float:right;" onclick="toggleDate(this, false)">✖ Remove Date</span></label><input type="text" class="c-date"></div>
             <div class="item-links-container"></div>
             <button type="button" class="btn-add-line" style="color:var(--brand-blue); background:none; padding:0; margin-bottom:8px; font-size:12px;" onclick="addItemLink(this)">+ Add Link</button>
-            <div class="desc-lines-container"><div class="desc-line-item"><textarea class="desc-line"></textarea><button type="button" class="btn-remove-line" onclick="this.parentElement.remove()">✖</button></div></div>
+            <div class="desc-lines-container"></div>
             <button type="button" class="btn-add-line" onclick="addDescLine(this)">+ Add Point</button>
         </div>`;
     document.querySelector(`#${blockId} .custom-items-container`)?.insertAdjacentHTML('beforeend', html);
@@ -659,6 +662,8 @@ function getCompiledLatex() {
             block.querySelectorAll('.custom-item').forEach(i => {
                 let cHeading = escapeLatex(i.querySelector('.c-heading').value);
                 let cDate = escapeLatex(i.querySelector('.c-date').value);
+                let isBold = i.querySelector('.tiny-bold-btn') ? i.querySelector('.tiny-bold-btn').classList.contains('active') : true;
+                
                 if(!cHeading) return;
                 
                 let links = extractItemLinks(i);
@@ -666,10 +671,12 @@ function getCompiledLatex() {
                 
                 if (activeTemplateId === 'tpl-professional') {
                     let linkString = links.join(' $|$ ');
-                    latex += getProSubheading(cHeading, cDate, linkString, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
+                    let formattedHeading = isBold ? cHeading : `\\textnormal{${cHeading}}`;
+                    latex += getProSubheading(formattedHeading, cDate, linkString, '') + '\n' + (lines.length ? formatText(lines, activeTemplateId) + '\n' : '');
                 } else {
                     let linkStrMod = links.join(' | ');
-                    let headText = `\\textbf{${cHeading}}` + (linkStrMod ? ` | ${linkStrMod}` : '');
+                    let formattedHeading = isBold ? `\\textbf{${cHeading}}` : cHeading;
+                    let headText = `${formattedHeading}` + (linkStrMod ? ` | ${linkStrMod}` : '');
                     latex += `${headText}${cDate ? `\\hfill\\textcolor{Gray}{${cDate}}` : ''}\n${formatText(lines, activeTemplateId)}\n\n`;
                 }
             });
