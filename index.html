@@ -73,10 +73,13 @@
 
     <div id="builder-screen" style="display: none; flex-direction: row; height: calc(100vh - 40px); overflow: hidden;">
         
-        <div class="container pane-left" id="left-pane" style="flex: 50%; min-width: 350px; overflow-y: auto;">
+        <div class="container pane-left" id="left-pane" style="flex: 0 0 50%; min-width: 350px; overflow-y: auto;">
             <header class="header-bar">
                 <div class="brand"><h2 style="margin:0;">Resume Editor <span style="color: #4285F4;">Pro</span></h2></div>
-                <button class="btn-back" onclick="goBackToSelection()">← Back to Dashboard</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="btn-secondary" id="btn-switch-template" style="padding: 6px 12px; font-size: 13px;">🔄 Switch Template</button>
+                    <button type="button" class="btn-back" onclick="goBackToSelection()">← Back to Dashboard</button>
+                </div>
             </header>
 
             <form id="resumeForm">
@@ -194,6 +197,7 @@
 
                 <div class="action-buttons">
                     <button type="button" class="btn-secondary" id="btn-generate">Preview LaTeX</button>
+                    <button type="button" class="btn-primary" id="btn-preview-pdf" style="background-color: var(--brand-blue); color: white;">📄 Preview PDF</button>
                     <button type="button" class="btn-pro" id="btn-save-cloud" style="display: none;">☁ Save to Cloud</button>
                     <button type="button" class="btn-success" id="btn-download">Download PDF</button>
                 </div>
@@ -202,10 +206,38 @@
 
         <div class="resizer" id="dragMe" title="Drag to resize"></div>
 
-        <div class="container pane-right" id="right-pane" style="flex: 50%; min-width: 250px; display: flex; flex-direction: column;">
-            <h3 style="margin-top:0;">LaTeX Source (Overleaf Compatible)</h3>
-            <p class="text-muted" style="font-size: 12px; margin-top: 0;">Copy this code directly into Overleaf for advanced editing.</p>
-            <textarea id="output" readonly onclick="this.select()" placeholder="LaTeX code will appear here..." style="flex-grow: 1;"></textarea>
+        <div class="container pane-right" id="right-pane" style="flex: 1 1 0%; min-width: 300px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div class="header-bar" style="padding: 15px 20px 0 20px; margin-bottom: 0; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: flex; gap: 20px;">
+                <button id="tab-pdf" class="tab-btn active" style="padding-bottom: 10px;" onclick="switchRightPane('pdf')">PDF Preview</button>
+                <button id="tab-latex" class="tab-btn" style="padding-bottom: 10px;" onclick="switchRightPane('latex')">LaTeX Source</button>
+            </div>
+            
+            <!-- PDF Content Pane -->
+            <div id="content-pdf" style="flex-grow: 1; display: flex; flex-direction: column; background: #525659; position: relative;">
+                <div id="pdf-empty-state" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); text-align: center; padding: 20px; box-sizing: border-box; z-index: 10;">
+                    <p>Click "📄 Preview PDF" to compile and view your resume layout.</p>
+                </div>
+                <iframe id="pdf-iframe" style="width: 100%; height: 100%; border: none; display: none; z-index: 5;"></iframe>
+            </div>
+
+            <!-- LaTeX Content Pane -->
+            <div id="content-latex" style="flex-grow: 1; display: none; flex-direction: column; padding: 20px;">
+                <p class="text-muted" style="font-size: 12px; margin-top: 0; margin-bottom: 15px;">Copy this code directly into Overleaf for advanced editing.</p>
+                <textarea id="output" readonly onclick="this.select()" placeholder="LaTeX code will appear here..." style="flex-grow: 1; width: 100%; box-sizing: border-box;"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="switch-template-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Switch Template</h3>
+                <button class="btn-secondary" style="padding: 5px 10px;" onclick="closeSwitchTemplateModal()">✖ Close</button>
+            </div>
+            <p class="text-muted" style="font-size: 14px; margin-top: -5px; margin-bottom: 20px;">Select a new design. Your current content will be automatically formatted to fit.</p>
+            <div id="switch-template-grid" style="display: flex; overflow-x: auto; gap: 20px; padding-bottom: 15px; align-items: stretch;">
+                <!-- Templates loaded dynamically here -->
+            </div>
         </div>
     </div>
 
@@ -217,6 +249,17 @@
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="closeNamingModal()">Cancel</button>
                 <button type="button" class="btn-pro" onclick="confirmNameAndSave()">Save to Cloud</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Delete Resume?</h3>
+            <p class="text-muted" style="font-size: 14px;">Are you sure you want to permanently delete this draft? This action cannot be undone.</p>
+            <div class="modal-actions" style="margin-top: 20px; display: flex;">
+                <button type="button" class="btn-secondary" style="flex: 1;" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn-remove-section" style="border: none; flex: 1; padding: 15px; font-size: 16px;" onclick="confirmDelete()">Yes</button>
             </div>
         </div>
     </div>

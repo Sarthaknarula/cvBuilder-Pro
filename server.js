@@ -86,7 +86,10 @@ app.post('/api/save-resume', async (req, res) => {
             INSERT INTO resumes (user_id, template_id, resume_name, resume_data)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (user_id, resume_name)
-            DO UPDATE SET resume_data = EXCLUDED.resume_data, updated_at = CURRENT_TIMESTAMP
+            DO UPDATE SET 
+                resume_data = EXCLUDED.resume_data, 
+                template_id = EXCLUDED.template_id, 
+                updated_at = CURRENT_TIMESTAMP
             RETURNING *;
         `;
         await pool.query(query, [userId, templateId, resumeName, JSON.stringify(resumeData)]);

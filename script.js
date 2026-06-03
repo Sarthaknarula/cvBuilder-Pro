@@ -8,6 +8,9 @@ let mySavedResumes = [];
 let currentWorkspaceView = 'grid';
 let defaultCanvasHTML = '';
 
+let lastCompiledLatex = '';
+let lastCompiledBlobUrl = null;
+
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -42,7 +45,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchTemplates();
     initDefaultCanvas();
 
-    document.getElementById('btn-generate')?.addEventListener('click', () => document.getElementById('output').value = getCompiledLatex());
+    document.getElementById('btn-generate')?.addEventListener('click', () => {
+        document.getElementById('output').value = getCompiledLatex();
+        switchRightPane('latex');
+    });
+    
+    document.getElementById('btn-switch-template')?.addEventListener('click', openSwitchTemplateModal);
+    document.getElementById('btn-preview-pdf')?.addEventListener('click', previewPDF);
     document.getElementById('btn-save-cloud')?.addEventListener('click', saveToCloud);
     document.getElementById('btn-download')?.addEventListener('click', downloadPDF);
 });
@@ -198,31 +207,183 @@ async function executeSave() {
     finally { saveBtn.disabled = false; }
 }
 
-async function deleteResume(id) {
-    if(!confirm("Are you sure you want to delete this resume?")) return;
+// --- TEMPLATE SWITCHER LOGIC ---
+
+function openSwitchTemplateModal() {
+    const grid = document.getElementById('switch-template-grid');
+    grid.innerHTML = '';
+    
+    if (!window.resumeTemplates || window.resumeTemplates.length === 0) {
+        grid.innerHTML = '<p style="color:red;">No templates available.</p>';
+    } else {
+        window.resumeTemplates.forEach(t => {
+            const isCurrent = t.id === activeTemplateId;
+            grid.insertAdjacentHTML('beforeend', `
+                <div class="template-card" style="flex: 0 0 280px; padding: 20px; display: flex; flex-direction: column; align-items: center; ${isCurrent ? 'border: 2px solid var(--brand-blue);' : ''}" onclick="applyNewTemplate('${t.id}')">
+                    <div class="preview-wrapper" style="transform: scale(0.9); transform-origin: top center; margin-bottom: -30px; cursor:pointer; ${isCurrent ? 'opacity: 0.7;' : ''}">
+                        ${t.preview_html}
+                    </div>
+                    <div class="template-title" style="font-size: 18px; margin: 10px 0;">${t.title}</div>
+                    <button class="btn-primary" style="margin-top:auto; padding: 10px; width: 100%; font-size: 14px; ${isCurrent ? 'background-color: var(--text-muted); cursor: default;' : ''}">${isCurrent ? 'Currently Active' : 'Apply Template'}</button>
+                </div>
+            `);
+        });
+    }
+    document.getElementById('switch-template-modal').style.display = 'flex';
+}
+
+function closeSwitchTemplateModal() {
+    document.getElementById('switch-template-modal').style.display = 'none';
+}
+
+function applyNewTemplate(newTemplateId) {
+    if (newTemplateId === activeTemplateId) {
+        closeSwitchTemplateModal();
+        return; 
+    }
+    
+    const selectedTemplate = window.resumeTemplates.find(t => t.id === newTemplateId);
+    if (selectedTemplate) {
+        activeTemplateId = selectedTemplate.id;
+        activeTemplateLatex = selectedTemplate.latex_code;
+        
+        lastCompiledLatex = ''; 
+        document.getElementById('output').value = getCompiledLatex();
+        
+        showToast("Template switched successfully!", "success");
+        closeSwitchTemplateModal();
+    }
+}
+
+// ------------------------------
+
+let resumeIdToDelete = null;
+
+function deleteResume(id) {
+    resumeIdToDelete = id;
+    document.getElementById('delete-modal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-modal').style.display = 'none';
+    resumeIdToDelete = null;
+}
+
+async function confirmDelete() {
+    if (!resumeIdToDelete) return;
+    
     try {
-        const res = await fetch(`/api/delete-resume/${id}`, { method: 'DELETE' });
-        if(res.ok) { showToast("Resume deleted.", "success"); fetchMyResumes(); } 
-        else throw new Error();
-    } catch (err) { showToast("Failed to delete.", "error"); }
+        const res = await fetch(`/api/delete-resume/${resumeIdToDelete}`, { method: 'DELETE' });
+        if (res.ok) { 
+            showToast("Resume deleted.", "success"); 
+            fetchMyResumes(); 
+        } else {
+            throw new Error();
+        }
+    } catch (err) { 
+        showToast("Failed to delete.", "error"); 
+    } finally {
+        closeDeleteModal();
+    }
+}
+
+function switchRightPane(tab) {
+    document.getElementById('tab-latex').classList.toggle('active', tab === 'latex');
+    document.getElementById('tab-pdf').classList.toggle('active', tab === 'pdf');
+    document.getElementById('content-latex').style.display = tab === 'latex' ? 'flex' : 'none';
+    document.getElementById('content-pdf').style.display = tab === 'pdf' ? 'flex' : 'none';
+}
+
+async function previewPDF() {
+    switchRightPane('pdf');
+    const btn = document.getElementById('btn-preview-pdf');
+    const compiledCode = getCompiledLatex();
+    document.getElementById('output').value = compiledCode; 
+    
+    if (compiledCode === lastCompiledLatex && lastCompiledBlobUrl) {
+        document.getElementById('pdf-empty-state').style.display = 'none';
+        const iframe = document.getElementById('pdf-iframe');
+        iframe.style.display = 'block';
+        iframe.src = lastCompiledBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+        return;
+    }
+
+    const origText = btn.innerText; 
+    btn.innerText = "Compiling..."; 
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/compile-pdf', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ latex: compiledCode })
+        });
+        
+        if (!response.ok) throw new Error();
+        
+        const blob = await response.blob();
+        
+        if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
+        lastCompiledBlobUrl = window.URL.createObjectURL(blob);
+        lastCompiledLatex = compiledCode;
+        
+        document.getElementById('pdf-empty-state').style.display = 'none';
+        const iframe = document.getElementById('pdf-iframe');
+        iframe.style.display = 'block';
+        iframe.src = lastCompiledBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+        
+    } catch (error) { 
+        showToast("Error compiling PDF for preview.", "error"); 
+    } finally { 
+        btn.innerText = origText; 
+        btn.disabled = false; 
+    }
 }
 
 async function downloadPDF() {
     const btn = document.getElementById('btn-download');
     const compiledCode = getCompiledLatex();
     document.getElementById('output').value = compiledCode; 
-    const origText = btn.innerText; btn.innerText = "Compiling PDF..."; btn.disabled = true;
+
+    if (compiledCode === lastCompiledLatex && lastCompiledBlobUrl) {
+        triggerDownload(lastCompiledBlobUrl);
+        return;
+    }
+
+    const origText = btn.innerText; 
+    btn.innerText = "Compiling PDF..."; 
+    btn.disabled = true;
+    
     try {
         const response = await fetch('/api/compile-pdf', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latex: compiledCode })
         });
+        
         if (!response.ok) throw new Error();
+        
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'My_Resume.pdf';
-        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
-    } catch (error) { showToast("Error compiling PDF.", "error"); } 
-    finally { btn.innerText = origText; btn.disabled = false; }
+        
+        if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
+        lastCompiledBlobUrl = window.URL.createObjectURL(blob);
+        lastCompiledLatex = compiledCode;
+
+        triggerDownload(lastCompiledBlobUrl);
+        
+    } catch (error) { 
+        showToast("Error compiling PDF.", "error"); 
+    } finally { 
+        btn.innerText = origText; 
+        btn.disabled = false; 
+    }
+}
+
+function triggerDownload(url) {
+    const a = document.createElement('a'); 
+    a.href = url; 
+    a.download = (activeResumeName ? activeResumeName.replace(/\s+/g, '_') : 'My_Resume') + '.pdf'; 
+    document.body.appendChild(a); 
+    a.click(); 
+    a.remove(); 
 }
 
 function initResizer() {
@@ -288,6 +449,13 @@ function openBuilder(templateId) {
     activeTemplateId = templateId; 
     activeTemplateLatex = window.resumeTemplates.find(t => t.id === templateId).latex_code; 
     activeResumeName = ''; 
+    
+    lastCompiledLatex = '';
+    if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
+    lastCompiledBlobUrl = null;
+    document.getElementById('pdf-iframe').style.display = 'none';
+    document.getElementById('pdf-empty-state').style.display = 'flex';
+    
     switchScreen('builder');
     document.getElementById('builder-canvas').innerHTML = defaultCanvasHTML;
     customSectionCounter = 0; window.workCounter = 0;
