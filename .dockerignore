@@ -3,6 +3,7 @@ npm-debug.log
 .env
 temp
 .git
+.gitignore
 
 debug.js
 flush-redis.js
