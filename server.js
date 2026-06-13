@@ -10,6 +10,9 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
+const { Queue, Worker } = require('bullmq');
+const Redis = require('ioredis');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -58,6 +61,52 @@ passport.deserializeUser(async (id, done) => {
     } catch (err) {
         done(err, null);
     }
+});
+
+const redisConnection = new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+    tls: { rejectUnauthorized: false } 
+});
+
+const pdfQueue = new Queue('pdf-compilation', { 
+    connection: redisConnection,
+    streams: { events: { maxLen: 10 } }
+});
+
+const pdfWorker = new Worker('pdf-compilation', async (job) => {
+    const { latexString, jobId } = job.data;
+    const tempDir = path.join(__dirname, 'temp', jobId);
+    const texFilePath = path.join(tempDir, 'resume.tex');
+    const pdfFilePath = path.join(tempDir, 'resume.pdf');
+    
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.writeFileSync(texFilePath, latexString);
+
+    return new Promise((resolve, reject) => {
+        exec(`pdflatex -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir, timeout: 20000 }, (error, stdout, stderr) => {
+            if (fs.existsSync(pdfFilePath)) {
+                const pdfBuffer = fs.readFileSync(pdfFilePath);
+                const base64Pdf = pdfBuffer.toString('base64');
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                resolve({ pdfBase64: base64Pdf });
+            } else {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                reject(new Error('Compilation failed. Check LaTeX syntax.'));
+            }
+        });
+    });
+}, { 
+    connection: redisConnection,
+    concurrency: 1,
+    streams: { events: { maxLen:10 } }
+});
+
+pdfWorker.on('completed', async () => {
+    await redisConnection.xtrim('bull:pdf-compilation:events', 'MAXLEN', '~', '10');
+});
+
+pdfWorker.on('failed', async () => {
+    await redisConnection.xtrim('bull:pdf-compilation:events', 'MAXLEN', '~', '10');
 });
 
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
@@ -148,28 +197,37 @@ app.get('/api/templates', async (req, res) => {
     }
 });
 
-app.post('/api/compile-pdf', (req, res) => {
+app.post('/api/compile-pdf', async (req, res) => {
     const latexString = req.body.latex;
     if (!latexString) return res.status(400).json({ error: 'No LaTeX code provided' });
 
     const uniqueId = crypto.randomUUID();
-    const tempDir = path.join(__dirname, 'temp', uniqueId);
-    fs.mkdirSync(tempDir, { recursive: true });
-
-    const texFilePath = path.join(tempDir, 'resume.tex');
-    const pdfFilePath = path.join(tempDir, 'resume.pdf');
-    fs.writeFileSync(texFilePath, latexString);
-
-    exec(`pdflatex -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir }, (error, stdout, stderr) => {
-        if (fs.existsSync(pdfFilePath)) {
-            res.download(pdfFilePath, 'Resume.pdf', (err) => {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            });
-        } else {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-            res.status(500).json({ error: 'LaTeX compilation failed.', details: stdout });
-        }
+    
+    const job = await pdfQueue.add('compile', { latexString, jobId: uniqueId }, {
+        removeOnComplete: { age: 30, count: 5 },
+        removeOnFail: { age: 30, count: 5 }
     });
+    
+    res.json({ message: 'Compilation queued', jobId: job.id });
+});
+
+app.get('/api/job-status/:id', async (req, res) => {
+    try {
+        const job = await pdfQueue.getJob(req.params.id);
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+
+        const state = await job.getState();
+        
+        if (state === 'completed') {
+            res.json({ status: 'completed', result: job.returnvalue });
+        } else if (state === 'failed') {
+            res.json({ status: 'failed', error: job.failedReason });
+        } else {
+            res.json({ status: state }); 
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Error checking job status' });
+    }
 });
 
 app.listen(PORT, () => {

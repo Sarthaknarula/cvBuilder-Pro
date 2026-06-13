@@ -207,8 +207,6 @@ async function executeSave() {
     finally { saveBtn.disabled = false; }
 }
 
-// --- TEMPLATE SWITCHER LOGIC ---
-
 function openSwitchTemplateModal() {
     const grid = document.getElementById('switch-template-grid');
     grid.innerHTML = '';
@@ -255,8 +253,6 @@ function applyNewTemplate(newTemplateId) {
     }
 }
 
-// ------------------------------
-
 let resumeIdToDelete = null;
 
 function deleteResume(id) {
@@ -294,6 +290,21 @@ function switchRightPane(tab) {
     document.getElementById('content-pdf').style.display = tab === 'pdf' ? 'flex' : 'none';
 }
 
+function base64ToBlob(base64, mimeType = 'application/pdf') {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: mimeType });
+}
+
 async function previewPDF() {
     switchRightPane('pdf');
     const btn = document.getElementById('btn-preview-pdf');
@@ -309,7 +320,7 @@ async function previewPDF() {
     }
 
     const origText = btn.innerText; 
-    btn.innerText = "Compiling..."; 
+    btn.innerText = "Queuing..."; 
     btn.disabled = true;
 
     try {
@@ -319,22 +330,46 @@ async function previewPDF() {
             body: JSON.stringify({ latex: compiledCode })
         });
         
-        if (!response.ok) throw new Error();
+        if (!response.ok) throw new Error("Failed to queue job");
+        const { jobId } = await response.json();
         
-        const blob = await response.blob();
-        
-        if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
-        lastCompiledBlobUrl = window.URL.createObjectURL(blob);
-        lastCompiledLatex = compiledCode;
-        
-        document.getElementById('pdf-empty-state').style.display = 'none';
-        const iframe = document.getElementById('pdf-iframe');
-        iframe.style.display = 'block';
-        iframe.src = lastCompiledBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+        const pollJobStatus = async () => {
+            try {
+                const statusRes = await fetch(`/api/job-status/${jobId}`);
+                const statusData = await statusRes.json();
+
+                if (statusData.status === 'completed') {
+                    const blob = base64ToBlob(statusData.result.pdfBase64);
+                    if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
+                    lastCompiledBlobUrl = window.URL.createObjectURL(blob);
+                    lastCompiledLatex = compiledCode;
+                    
+                    document.getElementById('pdf-empty-state').style.display = 'none';
+                    const iframe = document.getElementById('pdf-iframe');
+                    iframe.style.display = 'block';
+                    iframe.src = lastCompiledBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+                    
+                    btn.innerText = origText; 
+                    btn.disabled = false;
+                } else if (statusData.status === 'failed') {
+                    showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
+                    btn.innerText = origText; 
+                    btn.disabled = false;
+                } else {
+                    btn.innerText = statusData.status === 'active' ? "Compiling..." : "In Queue...";
+                    setTimeout(pollJobStatus, 1500);
+                }
+            } catch (pollError) {
+                showToast("Network error while checking status.", "error");
+                btn.innerText = origText;
+                btn.disabled = false;
+            }
+        };
+
+        pollJobStatus();
         
     } catch (error) { 
-        showToast("Error compiling PDF for preview.", "error"); 
-    } finally { 
+        showToast("Error queuing PDF.", "error"); 
         btn.innerText = origText; 
         btn.disabled = false; 
     }
@@ -351,7 +386,7 @@ async function downloadPDF() {
     }
 
     const origText = btn.innerText; 
-    btn.innerText = "Compiling PDF..."; 
+    btn.innerText = "Queuing..."; 
     btn.disabled = true;
     
     try {
@@ -359,19 +394,43 @@ async function downloadPDF() {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latex: compiledCode })
         });
         
-        if (!response.ok) throw new Error();
-        
-        const blob = await response.blob();
-        
-        if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
-        lastCompiledBlobUrl = window.URL.createObjectURL(blob);
-        lastCompiledLatex = compiledCode;
+        if (!response.ok) throw new Error("Failed to queue job");
+        const { jobId } = await response.json();
 
-        triggerDownload(lastCompiledBlobUrl);
+        const pollJobStatus = async () => {
+            try {
+                const statusRes = await fetch(`/api/job-status/${jobId}`);
+                const statusData = await statusRes.json();
+
+                if (statusData.status === 'completed') {
+                    const blob = base64ToBlob(statusData.result.pdfBase64);
+                    if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
+                    lastCompiledBlobUrl = window.URL.createObjectURL(blob);
+                    lastCompiledLatex = compiledCode;
+
+                    triggerDownload(lastCompiledBlobUrl);
+                    
+                    btn.innerText = origText; 
+                    btn.disabled = false;
+                } else if (statusData.status === 'failed') {
+                    showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
+                    btn.innerText = origText; 
+                    btn.disabled = false;
+                } else {
+                    btn.innerText = statusData.status === 'active' ? "Compiling PDF..." : "In Queue...";
+                    setTimeout(pollJobStatus, 1500);
+                }
+            } catch (pollError) {
+                showToast("Network error while checking status.", "error");
+                btn.innerText = origText;
+                btn.disabled = false;
+            }
+        };
+
+        pollJobStatus();
         
     } catch (error) { 
-        showToast("Error compiling PDF.", "error"); 
-    } finally { 
+        showToast("Error queuing PDF.", "error"); 
         btn.innerText = origText; 
         btn.disabled = false; 
     }
@@ -457,10 +516,26 @@ function openBuilder(templateId) {
     document.getElementById('pdf-empty-state').style.display = 'flex';
     
     switchScreen('builder');
+    
     document.getElementById('builder-canvas').innerHTML = defaultCanvasHTML;
     customSectionCounter = 0; window.workCounter = 0;
+    
+    document.getElementById('header-links-container').innerHTML = '';
     document.getElementById('education-container').innerHTML = '';
-    addEducation(true, 'B.Tech Computer Science', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
+    document.getElementById('work-container').innerHTML = '';
+    document.getElementById('project-container').innerHTML = '';
+    document.getElementById('skill-container').innerHTML = '';
+    
+    document.getElementById('name').value = 'Alex Johnson';
+    addHeaderLink('Phone', '+1 234 567 8900');
+    addHeaderLink('Email', 'alex.johnson@email.com');
+    addHeaderLink('LinkedIn', 'linkedin.com/in/alexj');
+    
+    addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'University of Technology', '3.90 GPA');
+    addWorkExperience('Tech Solutions Inc.', '2023 - Present', false); 
+    addRole('work-exp-1', 'Software Engineer', 'June 2023 - Present', 'Developed and maintained scalable web applications.');
+    addProject('E-Commerce Platform | React, Firebase', 'Live Demo', 'https://github.com', 'Architected a full-stack e-commerce solution.');
+    addSkill('Languages / Tools', 'Python, Java, C++, React, Node.js');
 }
 
 function goBackToSelection() { switchScreen('selection'); }
@@ -500,10 +575,16 @@ if (canvas) {
 
 function initDefaultCanvas() {
     if (!isUserLoggedIn && document.getElementById('education-container')) {
-        addEducation(true, 'B.Tech Computer Science Engineering', '2023 - 2027', 'Delhi Technological University', '9.15 CGPA');
-        addWorkExperience('Tech Solutions Inc.', '2024 - Present', false); 
-        addRole('work-exp-1', 'Software Engineer Intern', 'June 2024 - Present', 'Developed and maintained scalable web applications.');
+        document.getElementById('name').value = 'Alex Johnson';
+        addHeaderLink('Phone', '+1 234 567 8900');
+        addHeaderLink('Email', 'alex.johnson@email.com');
+        addHeaderLink('LinkedIn', 'linkedin.com/in/alexj');
+        
+        addEducation(true, 'B.S. Computer Science', '2019 - 2023', 'University of Technology', '3.90 GPA');
+        addWorkExperience('Tech Solutions Inc.', '2023 - Present', false); 
+        addRole('work-exp-1', 'Software Engineer', 'June 2023 - Present', 'Developed and maintained scalable web applications.');
         addProject('E-Commerce Platform | React, Firebase', 'Live Demo', 'https://github.com', 'Architected a full-stack e-commerce solution.');
+        addSkill('Languages / Tools', 'Python, Java, C++, React, Node.js');
     }
 }
 

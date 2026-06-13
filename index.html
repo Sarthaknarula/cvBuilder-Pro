@@ -89,26 +89,10 @@
                             <h3 class="collapsible-title" onclick="toggleSection(this)"><span class="toggle-icon">▼</span> Personal Information</h3>
                         </div>
                         <div class="flex-row">
-                            <div style="width: 100%;"><label>Full Name</label><input type="text" id="name" value="Sarthak Narula"></div>
+                            <div style="width: 100%;"><label>Full Name</label><input type="text" id="name" value=""></div>
                         </div>
                         
-                        <div id="header-links-container">
-                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. Phone" value="+91 00000 00000"></div>
-                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="e.g. tel:+91..." value=""></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. Email" value="your.email@example.com"></div>
-                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="e.g. mailto:..." value="mailto:your.email@example.com"></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                            <div class="flex-row header-link-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Display Text</label><input type="text" class="h-link-name" placeholder="e.g. LinkedIn" value="LinkedIn"></div>
-                                <div style="flex: 2;"><label>URL / Action (Optional)</label><input type="text" class="h-link-url" placeholder="https://..." value="linkedin.com/in/username"></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.header-link-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                        </div>
+                        <div id="header-links-container"></div>
                         <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addHeaderLink()">+ Add Contact Info / Link</button>
                     </div>
 
@@ -169,23 +153,7 @@
                             </div>
                         </div>
                         
-                        <div id="skill-container">
-                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Languages" value="Languages / Tools"></div>
-                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. Java, C++" value="C++, Python, JavaScript"></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Frameworks" value="Frameworks / Libraries"></div>
-                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. React, Node" value="React, Node.js, Express"></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                            <div class="flex-row skill-item" style="margin-top: 10px; align-items: flex-end;">
-                                <div style="flex: 1;"><label>Category Heading</label><input type="text" class="s-heading" placeholder="e.g. Tools" value="Other / Soft Skills"></div>
-                                <div style="flex: 2;"><label>Skills</label><input type="text" class="s-details" placeholder="e.g. Git, Docker" value="Agile, Communication"></div>
-                                <button type="button" class="btn-remove-line" style="margin-bottom: 2px; padding: 6px 10px; cursor: pointer;" onclick="this.closest('.skill-item').remove()" title="Remove Item">✖</button>
-                            </div>
-                        </div>
+                        <div id="skill-container"></div>
                         <button type="button" class="btn-add" style="margin-top: 10px; background: var(--bg-card);" onclick="addSkill()">+ Add Skill Category</button>
                     </div>
                 </div>
@@ -212,7 +180,6 @@
                 <button id="tab-latex" class="tab-btn" style="padding-bottom: 10px;" onclick="switchRightPane('latex')">LaTeX Source</button>
             </div>
             
-            <!-- PDF Content Pane -->
             <div id="content-pdf" style="flex-grow: 1; display: flex; flex-direction: column; background: #525659; position: relative;">
                 <div id="pdf-empty-state" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--bg-hover); color: var(--text-muted); text-align: center; padding: 20px; box-sizing: border-box; z-index: 10;">
                     <p>Click "📄 Preview PDF" to compile and view your resume layout.</p>
@@ -220,7 +187,6 @@
                 <iframe id="pdf-iframe" style="width: 100%; height: 100%; border: none; display: none; z-index: 5;"></iframe>
             </div>
 
-            <!-- LaTeX Content Pane -->
             <div id="content-latex" style="flex-grow: 1; display: none; flex-direction: column; padding: 20px;">
                 <p class="text-muted" style="font-size: 12px; margin-top: 0; margin-bottom: 15px;">Copy this code directly into Overleaf for advanced editing.</p>
                 <textarea id="output" readonly onclick="this.select()" placeholder="LaTeX code will appear here..." style="flex-grow: 1; width: 100%; box-sizing: border-box;"></textarea>
@@ -236,7 +202,6 @@
             </div>
             <p class="text-muted" style="font-size: 14px; margin-top: -5px; margin-bottom: 20px;">Select a new design. Your current content will be automatically formatted to fit.</p>
             <div id="switch-template-grid" style="display: flex; overflow-x: auto; gap: 20px; padding-bottom: 15px; align-items: stretch;">
-                <!-- Templates loaded dynamically here -->
             </div>
         </div>
     </div>
@@ -245,7 +210,7 @@
         <div class="modal-content">
             <h3>Name Your Resume</h3>
             <p class="text-muted" style="font-size: 14px;">Give this draft a clear name to find it later.</p>
-            <input type="text" id="resume-name-input" placeholder="e.g., SDE_Resume_DTU" autocomplete="off">
+            <input type="text" id="resume-name-input" placeholder="e.g., SDE_Resume" autocomplete="off">
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="closeNamingModal()">Cancel</button>
                 <button type="button" class="btn-pro" onclick="confirmNameAndSave()">Save to Cloud</button>
