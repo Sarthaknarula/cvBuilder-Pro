@@ -9,7 +9,6 @@ const { Pool } = require('pg');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-
 const { Queue, Worker } = require('bullmq');
 const Redis = require('ioredis');
 
@@ -64,8 +63,7 @@ passport.deserializeUser(async (id, done) => {
 });
 
 const redisConnection = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    tls: { rejectUnauthorized: false } 
+    maxRetriesPerRequest: null
 });
 
 const pdfQueue = new Queue('pdf-compilation', { 
@@ -98,7 +96,7 @@ const pdfWorker = new Worker('pdf-compilation', async (job) => {
 }, { 
     connection: redisConnection,
     concurrency: 1,
-    streams: { events: { maxLen:10 } }
+    streams: { events: { maxLen: 10 } }
 });
 
 pdfWorker.on('completed', async () => {
