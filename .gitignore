@@ -1,5 +1,7 @@
 node_modules/
 temp/
 .env
-cloud-test.yml
-stress-test.yml
+
+debug.js
+flush-redis.js
+redis-memory-status.js

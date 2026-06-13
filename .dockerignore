@@ -3,5 +3,7 @@ npm-debug.log
 .env
 temp
 .git
-cloud-test.yml
-stress-test.yml
+
+debug.js
+flush-redis.js
+redis-memory-status.js

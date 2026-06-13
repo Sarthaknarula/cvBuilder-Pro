@@ -1,0 +1,30 @@
+config:
+  environments:
+    local:
+      target: "http://localhost:3000"
+    cloud:
+      target: "https://cvbuilder-pro.onrender.com"
+
+  phases:
+    - duration: 30
+      arrivalRate: 1
+      rampTo: 5
+      name: "Warm up phase"
+    
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 10
+      name: "Moderate Load Spike"
+
+scenarios:
+  - name: "Queue Compilation Job"
+    weight: 1
+    flow:
+      - post:
+          url: "/api/compile-pdf"
+          json:
+            latex: "\\documentclass{article}\\begin{document}Stress Test PDF - Testing BullMQ Worker Queue Isolation under moderate loads.\\end{document}"
+          
+          capture:
+            - json: "$.jobId"
+              as: "jobId"
