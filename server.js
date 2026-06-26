@@ -7,10 +7,16 @@ const { exec } = require('child_process');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { Queue, Worker } = require('bullmq');
 const Redis = require('ioredis');
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,7 +25,12 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    store: new pgSession({
+        pool: pool,
+        tableName: 'session',
+        createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET || 'cvbuilder_secret_key',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: process.env.NODE_ENV === "production", maxAge: 24 * 60 * 60 * 1000 }
@@ -27,12 +38,8 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(express.static(__dirname));
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+app.use(express.static(__dirname));
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -81,7 +88,7 @@ const pdfWorker = new Worker('pdf-compilation', async (job) => {
     fs.writeFileSync(texFilePath, latexString);
 
     return new Promise((resolve, reject) => {
-        exec(`pdflatex -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir, timeout: 20000 }, (error, stdout, stderr) => {
+        exec(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir, timeout: 20000 }, (error, stdout, stderr) => {
             if (fs.existsSync(pdfFilePath)) {
                 const pdfBuffer = fs.readFileSync(pdfFilePath);
                 const base64Pdf = pdfBuffer.toString('base64');
@@ -139,7 +146,8 @@ app.post('/api/save-resume', async (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *;
         `;
-        await pool.query(query, [userId, templateId, resumeName, JSON.stringify(resumeData)]);
+        const dataPayload = typeof resumeData === 'string' ? resumeData : JSON.stringify(resumeData);
+        await pool.query(query, [userId, templateId, resumeName, dataPayload]);
         res.json({ success: true, message: 'Saved successfully!' });
     } catch (err) {
         console.error("Save Error:", err);
@@ -152,8 +160,15 @@ app.get('/api/load-resume/:id', async (req, res) => {
     try {
         const query = `SELECT resume_data, resume_name FROM resumes WHERE id = $1 AND user_id = $2;`;
         const result = await pool.query(query, [req.params.id, req.user.id]);
-        if (result.rows.length > 0) res.json({ resumeData: result.rows[0].resume_data, resumeName: result.rows[0].resume_name });
-        else res.status(404).json({ message: 'Not found.' });
+        if (result.rows.length > 0) {
+            let data = result.rows[0].resume_data;
+            if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch (e) {}
+            }
+            res.json({ resumeData: data, resumeName: result.rows[0].resume_name });
+        } else {
+            res.status(404).json({ message: 'Not found.' });
+        }
     } catch (err) {
         res.status(500).json({ error: 'Failed to load.' });
     }
@@ -195,9 +210,34 @@ app.get('/api/templates', async (req, res) => {
     }
 });
 
+function sanitizeLatexInput(str) {
+    if (typeof str !== 'string') return '';
+    const dangerousPatterns = [
+        /\\input\b/gi,
+        /\\include\b/gi,
+        /\\openin\b/gi,
+        /\\read\b/gi,
+        /\\write18\b/gi,
+        /\\immediate\b/gi,
+        /\\verbatiminput\b/gi
+    ];
+    for (const pattern of dangerousPatterns) {
+        if (pattern.test(str)) {
+            throw new Error("Security Error: Forbidden LaTeX command detected.");
+        }
+    }
+    return str;
+}
+
 app.post('/api/compile-pdf', async (req, res) => {
-    const latexString = req.body.latex;
+    let latexString = req.body.latex;
     if (!latexString) return res.status(400).json({ error: 'No LaTeX code provided' });
+
+    try {
+        latexString = sanitizeLatexInput(latexString);
+    } catch (secError) {
+        return res.status(403).json({ error: secError.message });
+    }
 
     const uniqueId = crypto.randomUUID();
     

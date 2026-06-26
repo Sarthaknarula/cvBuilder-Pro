@@ -11,8 +11,11 @@ let defaultCanvasHTML = '';
 let lastCompiledLatex = '';
 let lastCompiledBlobUrl = null;
 
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+
 function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
+    const container = $('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     const icon = type === 'success' ? '✔' : type === 'error' ? '✖' : 'ℹ';
