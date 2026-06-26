@@ -339,28 +339,31 @@ async function previewPDF() {
         const pollJobStatus = async () => {
             try {
                 const statusRes = await fetch(`/api/job-status/${jobId}`);
-                const statusData = await statusRes.json();
+                const contentType = statusRes.headers.get("content-type");
 
-                if (statusData.status === 'completed') {
-                    const blob = base64ToBlob(statusData.result.pdfBase64);
+                if (contentType && contentType.includes("application/pdf")) {
+                    const blob = await statusRes.blob();
                     if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
                     lastCompiledBlobUrl = window.URL.createObjectURL(blob);
                     lastCompiledLatex = compiledCode;
-                    
+
                     document.getElementById('pdf-empty-state').style.display = 'none';
                     const iframe = document.getElementById('pdf-iframe');
                     iframe.style.display = 'block';
                     iframe.src = lastCompiledBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
-                    
-                    btn.innerText = origText; 
-                    btn.disabled = false;
-                } else if (statusData.status === 'failed') {
-                    showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
-                    btn.innerText = origText; 
+
+                    btn.innerText = origText;
                     btn.disabled = false;
                 } else {
-                    btn.innerText = statusData.status === 'active' ? "Compiling..." : "In Queue...";
-                    setTimeout(pollJobStatus, 1500);
+                    const statusData = await statusRes.json();
+                    if (statusData.status === 'failed') {
+                        showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
+                        btn.innerText = origText;
+                        btn.disabled = false;
+                    } else {
+                        btn.innerText = statusData.status === 'active' ? "Compiling..." : "In Queue...";
+                        setTimeout(pollJobStatus, 500);
+                    }
                 }
             } catch (pollError) {
                 showToast("Network error while checking status.", "error");
@@ -403,25 +406,28 @@ async function downloadPDF() {
         const pollJobStatus = async () => {
             try {
                 const statusRes = await fetch(`/api/job-status/${jobId}`);
-                const statusData = await statusRes.json();
+                const contentType = statusRes.headers.get("content-type");
 
-                if (statusData.status === 'completed') {
-                    const blob = base64ToBlob(statusData.result.pdfBase64);
+                if (contentType && contentType.includes("application/pdf")) {
+                    const blob = await statusRes.blob();
                     if (lastCompiledBlobUrl) window.URL.revokeObjectURL(lastCompiledBlobUrl);
                     lastCompiledBlobUrl = window.URL.createObjectURL(blob);
                     lastCompiledLatex = compiledCode;
 
                     triggerDownload(lastCompiledBlobUrl);
-                    
-                    btn.innerText = origText; 
-                    btn.disabled = false;
-                } else if (statusData.status === 'failed') {
-                    showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
-                    btn.innerText = origText; 
+
+                    btn.innerText = origText;
                     btn.disabled = false;
                 } else {
-                    btn.innerText = statusData.status === 'active' ? "Compiling PDF..." : "In Queue...";
-                    setTimeout(pollJobStatus, 1500);
+                    const statusData = await statusRes.json();
+                    if (statusData.status === 'failed') {
+                        showToast("LaTeX Error: Check your formatting for invalid characters.", "error");
+                        btn.innerText = origText;
+                        btn.disabled = false;
+                    } else {
+                        btn.innerText = statusData.status === 'active' ? "Compiling PDF..." : "In Queue...";
+                        setTimeout(pollJobStatus, 500);
+                    }
                 }
             } catch (pollError) {
                 showToast("Network error while checking status.", "error");

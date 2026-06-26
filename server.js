@@ -21,8 +21,11 @@ const pool = new Pool({
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || true,
+    credentials: true
+}));
+app.use(express.json({ limit: '1mb' }));
 
 app.use(session({
     store: new pgSession({
@@ -30,7 +33,7 @@ app.use(session({
         tableName: 'session',
         createTableIfMissing: true
     }),
-    secret: process.env.SESSION_SECRET || 'cvbuilder_secret_key',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { secure: process.env.NODE_ENV === "production", maxAge: 24 * 60 * 60 * 1000 }
@@ -39,6 +42,16 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+const blockedFiles = ['/server.js', '/seed.js', '/debug.js', '/flush-redis.js',
+    '/redis-memory-status.js', '/package.json', '/package-lock.json',
+    '/.env', '/.gitignore', '/.dockerignore', '/Dockerfile',
+    '/stress-test.yml', '/node_modules'];
+app.use((req, res, next) => {
+    if (blockedFiles.some(f => req.path.toLowerCase().startsWith(f.toLowerCase()))) {
+        return res.status(404).send('Not found');
+    }
+    next();
+});
 app.use(express.static(__dirname));
 
 passport.use(new GoogleStrategy({
@@ -63,6 +76,7 @@ passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
     try {
         const res = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+        if (!res.rows[0]) return done(null, false);
         done(null, res.rows[0]);
     } catch (err) {
         done(err, null);
@@ -73,7 +87,7 @@ const redisConnection = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null
 });
 
-const pdfQueue = new Queue('pdf-compilation', { 
+const pdfQueue = new Queue('pdf-compilation', {
     connection: redisConnection,
     streams: { events: { maxLen: 10 } }
 });
@@ -83,12 +97,12 @@ const pdfWorker = new Worker('pdf-compilation', async (job) => {
     const tempDir = path.join(__dirname, 'temp', jobId);
     const texFilePath = path.join(tempDir, 'resume.tex');
     const pdfFilePath = path.join(tempDir, 'resume.pdf');
-    
+
     fs.mkdirSync(tempDir, { recursive: true });
     fs.writeFileSync(texFilePath, latexString);
 
     return new Promise((resolve, reject) => {
-        exec(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error resume.tex`, { cwd: tempDir, timeout: 20000 }, (error, stdout, stderr) => {
+        exec(`pdflatex -no-shell-escape -interaction=nonstopmode -file-line-error -halt-on-error resume.tex`, { cwd: tempDir, timeout: 20000 }, (error, stdout, stderr) => {
             if (fs.existsSync(pdfFilePath)) {
                 const pdfBuffer = fs.readFileSync(pdfFilePath);
                 const base64Pdf = pdfBuffer.toString('base64');
@@ -100,7 +114,7 @@ const pdfWorker = new Worker('pdf-compilation', async (job) => {
             }
         });
     });
-}, { 
+}, {
     connection: redisConnection,
     concurrency: 1,
     streams: { events: { maxLen: 10 } }
@@ -129,10 +143,10 @@ app.get('/logout', (req, res, next) => {
 
 app.post('/api/save-resume', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'You must be logged in.' });
-    
+
     const userId = req.user.id;
     const { templateId, resumeName, resumeData } = req.body;
-    
+
     if (!templateId || !resumeName || !resumeData) return res.status(400).json({ error: 'Missing data.' });
 
     try {
@@ -163,7 +177,7 @@ app.get('/api/load-resume/:id', async (req, res) => {
         if (result.rows.length > 0) {
             let data = result.rows[0].resume_data;
             if (typeof data === 'string') {
-                try { data = JSON.parse(data); } catch (e) {}
+                try { data = JSON.parse(data); } catch (e) { }
             }
             res.json({ resumeData: data, resumeName: result.rows[0].resume_name });
         } else {
@@ -212,21 +226,35 @@ app.get('/api/templates', async (req, res) => {
 
 function sanitizeLatexInput(str) {
     if (typeof str !== 'string') return '';
+
+    const safeInputs = ['glyphtounicode'];
+    const sanitized = str.replace(/\\input\{(\w+)\}/g, (match, arg) => {
+        return safeInputs.includes(arg) ? `%%SAFE_INPUT_${arg}%%` : match;
+    });
+
     const dangerousPatterns = [
-        /\\input\b/gi,
-        /\\include\b/gi,
-        /\\openin\b/gi,
-        /\\read\b/gi,
-        /\\write18\b/gi,
-        /\\immediate\b/gi,
-        /\\verbatiminput\b/gi
+        /\\input\b/i,
+        /\\include\b/i,
+        /\\openin\b/i,
+        /\\read\b/i,
+        /\\newread\b/i,
+        /\\verbatiminput\b/i,
+        /\\lstinputlisting\b/i,
+        /\\openout\b/i,
+        /\\newwrite\b/i,
+        /\\write/i,
+        /\\immediate\b/i,
+        /\\csname\b/i,
+        /\\catcode\b/i,
     ];
+
     for (const pattern of dangerousPatterns) {
-        if (pattern.test(str)) {
+        if (pattern.test(sanitized)) {
             throw new Error("Security Error: Forbidden LaTeX command detected.");
         }
     }
-    return str;
+
+    return sanitized.replace(/%%SAFE_INPUT_(\w+)%%/g, (match, arg) => `\\input{${arg}}`);
 }
 
 app.post('/api/compile-pdf', async (req, res) => {
@@ -240,13 +268,16 @@ app.post('/api/compile-pdf', async (req, res) => {
     }
 
     const uniqueId = crypto.randomUUID();
-    
-    const job = await pdfQueue.add('compile', { latexString, jobId: uniqueId }, {
-        removeOnComplete: { age: 30, count: 5 },
-        removeOnFail: { age: 30, count: 5 }
-    });
-    
-    res.json({ message: 'Compilation queued', jobId: job.id });
+
+    try {
+        const job = await pdfQueue.add('compile', { latexString, jobId: uniqueId }, {
+            removeOnComplete: { age: 30, count: 5 },
+            removeOnFail: { age: 30, count: 5 }
+        });
+        res.json({ message: 'Compilation queued', jobId: job.id });
+    } catch (queueError) {
+        res.status(503).json({ error: 'Compilation service temporarily unavailable.' });
+    }
 });
 
 app.get('/api/job-status/:id', async (req, res) => {
@@ -255,13 +286,15 @@ app.get('/api/job-status/:id', async (req, res) => {
         if (!job) return res.status(404).json({ error: 'Job not found' });
 
         const state = await job.getState();
-        
+
         if (state === 'completed') {
-            res.json({ status: 'completed', result: job.returnvalue });
+            const pdfBuffer = Buffer.from(job.returnvalue.pdfBase64, 'base64');
+            res.setHeader('Content-Type', 'application/pdf');
+            return res.send(pdfBuffer);
         } else if (state === 'failed') {
             res.json({ status: 'failed', error: job.failedReason });
         } else {
-            res.json({ status: state }); 
+            res.json({ status: state });
         }
     } catch (error) {
         res.status(500).json({ error: 'Error checking job status' });
